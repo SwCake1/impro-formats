@@ -1,0 +1,460 @@
+import './styles.css';
+import { FEATURE_TAGS, FORM_TAGS, SHEET_ID, SHEET_URL } from './config';
+import { fetchFormats, readCache, writeCache } from './data';
+import { countActiveFilters, countTag, DEFAULT_FILTERS, filterFormats } from './filters';
+import type { FilterState, FormatRecord, FurnitureFilter, OptionalBoolean, TriState } from './types';
+import { readFiltersFromUrl, writeFiltersToUrl } from './url-state';
+
+function element<T extends HTMLElement>(selector: string): T {
+  const node = document.querySelector<T>(selector);
+  if (!node) throw new Error(`Не найден элемент ${selector}`);
+  return node;
+}
+
+const searchInput = element<HTMLInputElement>('#searchInput');
+const clearSearch = element<HTMLButtonElement>('#clearSearch');
+const dataStatus = element<HTMLElement>('#dataStatus');
+const dataStatusText = element<HTMLElement>('#dataStatusText');
+const retryButton = element<HTMLButtonElement>('#retryButton');
+const filtersPanel = element<HTMLElement>('#filtersPanel');
+const filtersToggle = element<HTMLButtonElement>('#filtersToggle');
+const activeFiltersCount = element<HTMLElement>('#activeFiltersCount');
+const formFilters = element<HTMLElement>('#formFilters');
+const featureFilters = element<HTMLElement>('#featureFilters');
+const moderatorFilter = element<HTMLSelectElement>('#moderatorFilter');
+const audienceFilter = element<HTMLSelectElement>('#audienceFilter');
+const propsFilter = element<HTMLSelectElement>('#propsFilter');
+const furnitureFilter = element<HTMLSelectElement>('#furnitureFilter');
+const resultsCount = element<HTMLElement>('#resultsCount');
+const resultsHeading = element<HTMLElement>('#resultsHeading');
+const formatsList = element<HTMLElement>('#formatsList');
+const emptyState = element<HTMLElement>('#emptyState');
+const emptyStateTitle = element<HTMLElement>('#emptyState h3');
+const emptyStateText = element<HTMLElement>('#emptyState p');
+const resetFilters = element<HTMLButtonElement>('#resetFilters');
+const resetFiltersTop = element<HTMLButtonElement>('#resetFiltersTop');
+const emptyReset = element<HTMLButtonElement>('#emptyReset');
+const detailPanel = element<HTMLElement>('#detailPanel');
+const detailBackdrop = element<HTMLElement>('#detailBackdrop');
+const detailEmpty = element<HTMLElement>('#detailEmpty');
+const detailContent = element<HTMLElement>('#detailContent');
+const detailTitle = element<HTMLElement>('#detailTitle');
+const detailTags = element<HTMLElement>('#detailTags');
+const detailDescription = element<HTMLElement>('#detailDescription');
+const detailRequirements = element<HTMLElement>('#detailRequirements');
+const detailNoteSection = element<HTMLElement>('#detailNoteSection');
+const detailNote = element<HTMLElement>('#detailNote');
+const closeDetail = element<HTMLButtonElement>('#closeDetail');
+const copyLink = element<HTMLButtonElement>('#copyLink');
+const sourceRowLink = element<HTMLAnchorElement>('#sourceRowLink');
+const toast = element<HTMLElement>('#toast');
+
+const mobileQuery = window.matchMedia('(max-width: 1180px)');
+let records: FormatRecord[] = [];
+let filters: FilterState = readFiltersFromUrl(new URL(window.location.href));
+let selectedTriggerId: string | null = null;
+let toastTimer: number | undefined;
+let loadController: AbortController | null = null;
+
+function pluralizeFormats(count: number): string {
+  const mod100 = count % 100;
+  const mod10 = count % 10;
+  if (mod100 >= 11 && mod100 <= 19) return 'форматов';
+  if (mod10 === 1) return 'формат';
+  if (mod10 >= 2 && mod10 <= 4) return 'формата';
+  return 'форматов';
+}
+
+function formatFetchedAt(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'время неизвестно';
+  return new Intl.DateTimeFormat('ru', {
+    day: 'numeric',
+    month: 'long',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
+}
+
+function setDataStatus(kind: 'loading' | 'fresh' | 'cached' | 'error', message: string, canRetry = false): void {
+  dataStatus.dataset.kind = kind;
+  dataStatusText.textContent = message;
+  retryButton.hidden = !canRetry;
+}
+
+function showToast(message: string): void {
+  window.clearTimeout(toastTimer);
+  toast.textContent = message;
+  toast.hidden = false;
+  requestAnimationFrame(() => toast.classList.add('is-visible'));
+  toastTimer = window.setTimeout(() => {
+    toast.classList.remove('is-visible');
+    window.setTimeout(() => { toast.hidden = true; }, 180);
+  }, 2200);
+}
+
+function syncUrl(mode: 'replace' | 'push' = 'replace'): void {
+  const url = writeFiltersToUrl(filters, new URL(window.location.href));
+  window.history[mode === 'push' ? 'pushState' : 'replaceState']({}, '', url);
+}
+
+function createTapeButton(tag: string, count: number, selected: boolean, onClick: () => void): HTMLButtonElement {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'tape-filter';
+  button.setAttribute('aria-pressed', String(selected));
+  button.addEventListener('click', onClick);
+
+  const label = document.createElement('span');
+  label.textContent = tag;
+  const countLabel = document.createElement('span');
+  countLabel.className = 'tape-filter__count';
+  countLabel.textContent = String(count);
+  countLabel.setAttribute('aria-label', `${count} форматов`);
+  button.append(label, countLabel);
+  return button;
+}
+
+function renderFilterButtons(): void {
+  formFilters.replaceChildren();
+  FORM_TAGS.forEach((tag) => {
+    formFilters.append(createTapeButton(tag, countTag(records, tag), filters.formTag === tag, () => {
+      filters.formTag = filters.formTag === tag ? null : tag;
+      filters.selectedId = null;
+      syncUrl();
+      render();
+    }));
+  });
+
+  featureFilters.replaceChildren();
+  FEATURE_TAGS.forEach((tag) => {
+    featureFilters.append(createTapeButton(tag, countTag(records, tag), filters.featureTags.includes(tag), () => {
+      filters.featureTags = filters.featureTags.includes(tag)
+        ? filters.featureTags.filter((value) => value !== tag)
+        : [...filters.featureTags, tag];
+      filters.selectedId = null;
+      syncUrl();
+      render();
+    }));
+  });
+}
+
+function syncControls(): void {
+  searchInput.value = filters.query;
+  clearSearch.hidden = !filters.query;
+  moderatorFilter.value = filters.moderator;
+  audienceFilter.value = filters.audience;
+  propsFilter.value = filters.props;
+  furnitureFilter.value = filters.furniture;
+
+  const activeCount = countActiveFilters(filters);
+  activeFiltersCount.textContent = String(activeCount);
+  activeFiltersCount.hidden = activeCount === 0;
+  resetFilters.hidden = activeCount === 0;
+}
+
+function appendTag(container: HTMLElement, tag: string): void {
+  const badge = document.createElement('span');
+  badge.className = 'tag';
+  badge.textContent = tag;
+  container.append(badge);
+}
+
+function briefConditions(record: FormatRecord): string[] {
+  const values: string[] = [];
+  if (record.moderator === true) values.push('модератор');
+  if (record.audienceOnStage === true) values.push('зритель');
+  if (record.props === true) values.push('реквизит');
+  if (record.furnitureKinds.includes('chairs')) values.push('стулья');
+  if (record.furnitureKinds.includes('tables')) values.push('стол');
+  return values;
+}
+
+function createFormatRow(record: FormatRecord): HTMLButtonElement {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'format-row';
+  button.dataset.id = record.id;
+  button.setAttribute('aria-pressed', String(filters.selectedId === record.id));
+  button.setAttribute('aria-label', `Открыть формат «${record.title}»`);
+
+  const header = document.createElement('span');
+  header.className = 'format-row__header';
+  const title = document.createElement('span');
+  title.className = 'format-row__title';
+  title.textContent = record.title;
+  const arrow = document.createElement('span');
+  arrow.className = 'format-row__arrow';
+  arrow.setAttribute('aria-hidden', 'true');
+  arrow.textContent = '→';
+  header.append(title, arrow);
+
+  const metadata = document.createElement('span');
+  metadata.className = 'format-row__metadata';
+  const visibleTags = record.tags.slice(0, 2);
+  visibleTags.forEach((tag) => appendTag(metadata, tag));
+  const conditions = briefConditions(record);
+  if (conditions.length > 0) {
+    const needs = document.createElement('span');
+    needs.className = 'format-row__needs';
+    needs.textContent = conditions.join(' · ');
+    metadata.append(needs);
+  }
+  button.append(header, metadata);
+  button.addEventListener('click', () => selectFormat(record.id, button));
+  return button;
+}
+
+function booleanLabel(value: OptionalBoolean, positive: string, negative: string): string {
+  if (value === true) return positive;
+  if (value === false) return negative;
+  return 'Не указано';
+}
+
+function addRequirement(term: string, value: string, unknown = false): void {
+  const wrapper = document.createElement('div');
+  const dt = document.createElement('dt');
+  dt.textContent = term;
+  const dd = document.createElement('dd');
+  dd.textContent = value;
+  if (unknown) dd.classList.add('is-unknown');
+  wrapper.append(dt, dd);
+  detailRequirements.append(wrapper);
+}
+
+function findRecordById(id: string | null): FormatRecord | undefined {
+  if (!id) return undefined;
+  const exact = records.find((record) => record.id === id);
+  if (exact) return exact;
+  const requestedSlug = id.replace(/-[a-z0-9]+(?:-r\d+)?$/i, '');
+  return records.find((record) => record.id.replace(/-[a-z0-9]+(?:-r\d+)?$/i, '') === requestedSlug);
+}
+
+function renderDetail(): void {
+  const record = findRecordById(filters.selectedId);
+  if (!record) {
+    detailEmpty.hidden = false;
+    detailContent.hidden = true;
+    detailPanel.classList.remove('is-open');
+    detailBackdrop.hidden = true;
+    document.body.classList.remove('detail-open');
+    detailPanel.setAttribute('aria-hidden', mobileQuery.matches ? 'true' : 'false');
+    return;
+  }
+
+  if (filters.selectedId !== record.id) {
+    filters.selectedId = record.id;
+    syncUrl();
+  }
+  detailEmpty.hidden = true;
+  detailContent.hidden = false;
+  detailTitle.textContent = record.title;
+  detailDescription.textContent = record.description || 'Описание пока не добавлено.';
+  detailTags.replaceChildren();
+  record.tags.forEach((tag) => appendTag(detailTags, tag));
+
+  detailRequirements.replaceChildren();
+  addRequirement('Модератор', booleanLabel(record.moderator, 'Нужен', 'Не нужен'), record.moderator === null);
+  addRequirement('Зритель на сцене', booleanLabel(record.audienceOnStage, 'Нужен', 'Не нужен'), record.audienceOnStage === null);
+  addRequirement('Реквизит', booleanLabel(record.props, 'Нужен', 'Не нужен'), record.props === null);
+  addRequirement('Мебель', record.furniture || 'Не указано', !record.furniture);
+
+  detailNoteSection.hidden = !record.note;
+  detailNote.textContent = record.note;
+  sourceRowLink.href = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit?gid=0&range=A${record.sourceRow}:H${record.sourceRow}`;
+
+  detailPanel.classList.add('is-open');
+  detailPanel.setAttribute('aria-hidden', 'false');
+  if (mobileQuery.matches) {
+    detailBackdrop.hidden = false;
+    document.body.classList.add('detail-open');
+  }
+}
+
+function renderResults(): void {
+  const filtered = filterFormats(records, filters);
+  if (filters.selectedId && !filtered.some((record) => record.id === findRecordById(filters.selectedId)?.id)) {
+    filters.selectedId = null;
+    syncUrl();
+  }
+
+  resultsCount.textContent = String(filtered.length);
+  resultsHeading.setAttribute('aria-label', `${filtered.length} ${pluralizeFormats(filtered.length)}`);
+  formatsList.replaceChildren(...filtered.map(createFormatRow));
+
+  const showError = records.length === 0;
+  emptyState.hidden = filtered.length > 0;
+  emptyStateTitle.textContent = showError ? 'Не удалось загрузить форматы' : 'Такого сочетания пока нет';
+  emptyStateText.textContent = showError
+    ? 'Проверьте соединение и попробуйте ещё раз.'
+    : 'Уберите один из фильтров или измените запрос.';
+  emptyReset.textContent = showError ? 'Повторить загрузку' : 'Показать все';
+}
+
+function render(): void {
+  syncControls();
+  renderFilterButtons();
+  renderResults();
+  renderDetail();
+}
+
+function selectFormat(id: string, trigger?: HTMLElement): void {
+  selectedTriggerId = trigger?.dataset.id ?? id;
+  filters.selectedId = id;
+  syncUrl('push');
+  render();
+  if (mobileQuery.matches) {
+    window.setTimeout(() => detailPanel.focus(), 0);
+  }
+}
+
+function closeSelectedFormat(): void {
+  if (!filters.selectedId) return;
+  const triggerId = selectedTriggerId ?? filters.selectedId;
+  filters.selectedId = null;
+  syncUrl('push');
+  render();
+  formatsList.querySelector<HTMLButtonElement>(`.format-row[data-id="${CSS.escape(triggerId)}"]`)?.focus();
+  selectedTriggerId = null;
+}
+
+function resetAll(): void {
+  filters = { ...DEFAULT_FILTERS, featureTags: [] };
+  syncUrl();
+  render();
+  searchInput.focus();
+}
+
+function updateSelectFilters(): void {
+  filters.moderator = moderatorFilter.value as TriState;
+  filters.audience = audienceFilter.value as TriState;
+  filters.props = propsFilter.value as TriState;
+  filters.furniture = furnitureFilter.value as FurnitureFilter;
+  filters.selectedId = null;
+  syncUrl();
+  render();
+}
+
+function syncDetailMode(): void {
+  if (mobileQuery.matches) {
+    detailPanel.setAttribute('role', 'dialog');
+    detailPanel.setAttribute('aria-modal', 'true');
+    detailPanel.setAttribute('aria-hidden', filters.selectedId ? 'false' : 'true');
+    detailBackdrop.hidden = !filters.selectedId;
+    document.body.classList.toggle('detail-open', Boolean(filters.selectedId));
+  } else {
+    detailPanel.removeAttribute('role');
+    detailPanel.removeAttribute('aria-modal');
+    detailPanel.removeAttribute('aria-hidden');
+    detailBackdrop.hidden = true;
+    document.body.classList.remove('detail-open');
+  }
+}
+
+async function copyCurrentLink(): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(window.location.href);
+    showToast('Ссылка скопирована');
+  } catch {
+    const input = document.createElement('textarea');
+    input.value = window.location.href;
+    input.style.position = 'fixed';
+    input.style.opacity = '0';
+    document.body.append(input);
+    input.select();
+    document.execCommand('copy');
+    input.remove();
+    showToast('Ссылка скопирована');
+  }
+}
+
+async function loadFreshData(): Promise<void> {
+  loadController?.abort();
+  loadController = new AbortController();
+  setDataStatus('loading', records.length > 0 ? 'Проверяем обновления…' : 'Загружаем форматы…');
+  try {
+    const freshRecords = await fetchFormats(loadController.signal);
+    records = freshRecords;
+    const cached = writeCache(records);
+    render();
+    const timestamp = cached?.fetchedAt ?? new Date().toISOString();
+    setDataStatus('fresh', `Данные загружены ${formatFetchedAt(timestamp)}`);
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') return;
+    const reason = error instanceof Error ? error.message : 'Неизвестная ошибка.';
+    if (records.length > 0) {
+      const cached = readCache();
+      const suffix = cached ? ` Последняя загрузка: ${formatFetchedAt(cached.fetchedAt)}.` : '';
+      setDataStatus('cached', `Google Sheets недоступен. Показываем сохранённые данные.${suffix}`, true);
+    } else {
+      render();
+      setDataStatus('error', reason, true);
+    }
+  }
+}
+
+function trapDetailFocus(event: KeyboardEvent): void {
+  if (event.key === 'Escape' && filters.selectedId) {
+    closeSelectedFormat();
+    return;
+  }
+  if (event.key !== 'Tab' || !mobileQuery.matches || !filters.selectedId) return;
+  const focusable = [...detailPanel.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])')]
+    .filter((node) => !node.hidden);
+  if (focusable.length === 0) return;
+  const first = focusable[0];
+  const last = focusable.at(-1);
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last?.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first?.focus();
+  }
+}
+
+searchInput.addEventListener('input', () => {
+  filters.query = searchInput.value;
+  filters.selectedId = null;
+  syncUrl();
+  render();
+});
+clearSearch.addEventListener('click', () => {
+  filters.query = '';
+  filters.selectedId = null;
+  syncUrl();
+  render();
+  searchInput.focus();
+});
+[moderatorFilter, audienceFilter, propsFilter, furnitureFilter].forEach((select) => {
+  select.addEventListener('change', updateSelectFilters);
+});
+[resetFilters, resetFiltersTop].forEach((button) => button.addEventListener('click', resetAll));
+emptyReset.addEventListener('click', () => records.length > 0 ? resetAll() : void loadFreshData());
+retryButton.addEventListener('click', () => void loadFreshData());
+filtersToggle.addEventListener('click', () => {
+  const isOpen = filtersPanel.classList.toggle('is-open');
+  filtersToggle.setAttribute('aria-expanded', String(isOpen));
+});
+closeDetail.addEventListener('click', closeSelectedFormat);
+detailBackdrop.addEventListener('click', closeSelectedFormat);
+copyLink.addEventListener('click', () => void copyCurrentLink());
+document.addEventListener('keydown', trapDetailFocus);
+mobileQuery.addEventListener('change', syncDetailMode);
+window.addEventListener('popstate', () => {
+  filters = readFiltersFromUrl(new URL(window.location.href));
+  render();
+  syncDetailMode();
+});
+
+const cached = readCache();
+if (cached) {
+  records = cached.records;
+  setDataStatus('cached', `Показываем сохранённые данные от ${formatFetchedAt(cached.fetchedAt)}`);
+}
+render();
+syncDetailMode();
+void loadFreshData();
+
+// Keep the canonical source available for browser extensions and diagnostics.
+document.documentElement.dataset.source = SHEET_URL;
