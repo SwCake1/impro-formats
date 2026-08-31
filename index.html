@@ -7,11 +7,11 @@
       name="description"
       content="Каталог импровизационных форматов с поиском и фильтрами"
     />
-    <meta name="theme-color" content="#f3f6fb" />
+    <meta name="theme-color" content="#f2f5f3" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&amp;family=Unbounded:wght@600;700&amp;display=swap"
+      href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,500;7..72,600&amp;family=Onest:wght@400;500;600;650;700&amp;display=swap"
       rel="stylesheet"
     />
     <title>Что сыграем? — форматы импровизации</title>
@@ -20,8 +20,8 @@
     <header class="hero">
       <nav class="topbar" aria-label="Основная навигация">
         <a class="brand" href="./" aria-label="К началу каталога">
-          <span class="brand__mark" aria-hidden="true">↗</span>
-          <span>Соберём невозможное</span>
+          <span class="brand__mark" aria-hidden="true"></span>
+          <span>Что сыграем?</span>
         </a>
         <a
           class="source-link source-link--top"
@@ -35,11 +35,25 @@
       </nav>
 
       <div class="hero__content">
-        <p class="eyebrow">Каталог форматов импровизации</p>
-        <h1>Что сыграем?</h1>
-        <p class="hero__lead">
-          Найдите формат под состав, реквизит и настроение сцены.
-        </p>
+        <div class="hero__intro">
+          <div class="hero__copy">
+            <p class="eyebrow">Реестр сценических форматов</p>
+            <h1>Форматы импровизации — в одном сборнике</h1>
+            <p class="hero__lead">
+              Найдите игру под состав, реквизит и настроение сцены.
+            </p>
+          </div>
+
+          <aside class="author-credit" aria-label="Автор сборника">
+            <p class="author-credit__label">Автор и составитель</p>
+            <p class="author-credit__name">
+              <a href="https://t.me/AllaMos313" target="_blank" rel="noreferrer">Алла Москвичёва</a>
+            </p>
+            <p class="author-credit__note">
+              Собирает и систематизирует форматы для импровизаторов.
+            </p>
+          </aside>
+        </div>
 
         <div class="cue-search">
           <label for="searchInput">Название, механика или условие</label>
@@ -198,15 +212,18 @@
     </main>
 
     <footer class="footer">
-      <p>
-        Данные загружаются из таблицы
-        <a href="https://docs.google.com/spreadsheets/d/1AfoTVt6XzkpTk8UZAfBpzQlpSSKTyRkziyt4cglOMKU/edit?gid=0#gid=0" target="_blank" rel="noreferrer">
-          «Все форматы (соберём невозможное)»
-        </a>.
-      </p>
-      <p>
-        Автор таблицы — Алла Москвичёва ·
-        <a href="https://t.me/AllaMos313" target="_blank" rel="noreferrer">@AllaMos313</a>
+      <div class="footer__source">
+        <p class="footer__label">Источник</p>
+        <p>
+          Реестр Аллы Москвичёвой
+          <a href="https://docs.google.com/spreadsheets/d/1AfoTVt6XzkpTk8UZAfBpzQlpSSKTyRkziyt4cglOMKU/edit?gid=0#gid=0" target="_blank" rel="noreferrer">
+            «Все форматы (соберём невозможное)» ↗
+          </a>
+        </p>
+      </div>
+      <p class="footer__developer">
+        Сайт разработал
+        <a href="https://github.com/SwCake1" target="_blank" rel="noreferrer">Владислав Самохин ↗</a>
       </p>
     </footer>
 

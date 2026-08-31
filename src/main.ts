@@ -189,6 +189,10 @@ function createFormatRow(record: FormatRecord): HTMLButtonElement {
   arrow.textContent = '→';
   header.append(title, arrow);
 
+  const description = document.createElement('span');
+  description.className = 'format-row__description';
+  description.textContent = record.description || 'Описание пока не добавлено.';
+
   const metadata = document.createElement('span');
   metadata.className = 'format-row__metadata';
   const visibleTags = record.tags.slice(0, 2);
@@ -200,7 +204,7 @@ function createFormatRow(record: FormatRecord): HTMLButtonElement {
     needs.textContent = conditions.join(' · ');
     metadata.append(needs);
   }
-  button.append(header, metadata);
+  button.append(header, description, metadata);
   button.addEventListener('click', () => selectFormat(record.id, button));
   return button;
 }
