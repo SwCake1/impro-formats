@@ -20,24 +20,19 @@
     <header class="hero">
       <nav class="topbar" aria-label="Основная навигация">
         <a class="brand" href="./" aria-label="К началу каталога">
-          <span>Что сыграем?</span>
+          <span>Форматы</span>
         </a>
-        <div class="topbar__actions">
-          <div id="dataStatus" class="data-status" role="status" aria-live="polite">
-            <span class="data-status__dot" aria-hidden="true"></span>
-            <span id="dataStatusText">Загружаем форматы…</span>
-            <button id="retryButton" class="text-button" type="button" hidden>Повторить</button>
-          </div>
-          <a
-            class="source-link source-link--top"
-            href="https://docs.google.com/spreadsheets/d/1AfoTVt6XzkpTk8UZAfBpzQlpSSKTyRkziyt4cglOMKU/edit?gid=0#gid=0"
-            target="_blank"
-            rel="noreferrer"
-          >
-            Открыть таблицу
-            <span aria-hidden="true">↗</span>
-          </a>
-        </div>
+        <span class="topbar__separator" aria-hidden="true"></span>
+        <a
+          class="project-link"
+          href="https://swcake1.github.io/impro-toys/index.html"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Инструменты для импровизации, открыть в новой вкладке"
+        >
+          <span>Инструменты</span>
+          <span aria-hidden="true">↗</span>
+        </a>
       </nav>
 
       <div class="hero__content">
@@ -48,25 +43,6 @@
               Найдите игру под состав, реквизит и настроение сцены.
             </p>
           </div>
-
-          <aside class="credits" aria-label="Создатели проекта">
-            <div class="credit-person">
-              <p class="credit-person__scope">Автор и составитель · @AllaMos313</p>
-              <div>
-                <p class="credit-person__name">
-                  <a href="https://t.me/AllaMos313" target="_blank" rel="noreferrer">Алла Москвичёва ↗</a>
-                </p>
-              </div>
-            </div>
-            <div class="credit-person">
-              <p class="credit-person__scope">Разработка · @vlad_smhn</p>
-              <div>
-                <p class="credit-person__name">
-                  <a href="https://t.me/vlad_smhn" target="_blank" rel="noreferrer">Владислав Самохин ↗</a>
-                </p>
-              </div>
-            </div>
-          </aside>
         </div>
 
         <div class="cue-search">
@@ -258,19 +234,39 @@
     </main>
 
     <footer class="footer">
-      <div class="footer__source">
-        <p class="footer__label">Источник</p>
-        <p>
-          Реестр Аллы Москвичёвой
-          <a href="https://docs.google.com/spreadsheets/d/1AfoTVt6XzkpTk8UZAfBpzQlpSSKTyRkziyt4cglOMKU/edit?gid=0#gid=0" target="_blank" rel="noreferrer">
-            «Все форматы (соберём невозможное)» ↗
+      <section class="footer__section footer__creators" aria-labelledby="footerCreatorsTitle">
+        <p id="footerCreatorsTitle" class="footer__label">Создатели</p>
+        <div class="footer__creators-list">
+          <p class="footer__creator">
+            <span class="footer__role">Автор и составитель</span>
+            <a href="https://t.me/AllaMos313" target="_blank" rel="noreferrer">Алла Москвичёва · @AllaMos313 ↗</a>
+          </p>
+          <p class="footer__creator">
+            <span class="footer__role">Разработка</span>
+            <a href="https://t.me/vlad_smhn" target="_blank" rel="noreferrer">Владислав Самохин · @vlad_smhn ↗</a>
+          </p>
+        </div>
+      </section>
+
+      <section class="footer__section footer__data" aria-labelledby="footerDataTitle">
+        <p id="footerDataTitle" class="footer__label">Каталог</p>
+        <div class="catalog-meta">
+          <a
+            class="source-link"
+            href="https://docs.google.com/spreadsheets/d/1AfoTVt6XzkpTk8UZAfBpzQlpSSKTyRkziyt4cglOMKU/edit?gid=0#gid=0"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Исходная таблица
+            <span aria-hidden="true">↗</span>
           </a>
-        </p>
-      </div>
-      <p class="footer__developer">
-        Сайт разработал
-        <a href="https://t.me/vlad_smhn" target="_blank" rel="noreferrer">Владислав Самохин · @vlad_smhn ↗</a>
-      </p>
+          <div id="dataStatus" class="data-status" role="status" aria-live="polite">
+            <span class="data-status__dot" aria-hidden="true"></span>
+            <span id="dataStatusText">Загружаем форматы…</span>
+            <button id="retryButton" class="text-button" type="button" hidden>Повторить</button>
+          </div>
+        </div>
+      </section>
     </footer>
 
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
