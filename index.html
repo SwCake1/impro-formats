@@ -248,26 +248,42 @@
         </div>
       </section>
 
-      <section class="footer__section footer__data" aria-labelledby="footerDataTitle">
-        <p id="footerDataTitle" class="footer__label">Каталог</p>
-        <div class="catalog-meta">
-          <a
-            class="source-link"
-            href="https://docs.google.com/spreadsheets/d/1AfoTVt6XzkpTk8UZAfBpzQlpSSKTyRkziyt4cglOMKU/edit?gid=0#gid=0"
-            target="_blank"
-            rel="noreferrer"
-          >
-            Исходная таблица
-            <span aria-hidden="true">↗</span>
-          </a>
-          <div id="dataStatus" class="data-status" role="status" aria-live="polite">
-            <span class="data-status__dot" aria-hidden="true"></span>
-            <span id="dataStatusText">Загружаем форматы…</span>
-            <button id="retryButton" class="text-button" type="button" hidden>Повторить</button>
-          </div>
-        </div>
+      <section class="footer__section footer__data" aria-label="Исходные данные">
+        <a
+          class="source-link"
+          href="https://docs.google.com/spreadsheets/d/1AfoTVt6XzkpTk8UZAfBpzQlpSSKTyRkziyt4cglOMKU/edit?gid=0#gid=0"
+          target="_blank"
+          rel="noreferrer"
+        >
+          Исходная таблица
+          <span aria-hidden="true">↗</span>
+        </a>
       </section>
     </footer>
+
+    <aside id="themePicker" class="theme-picker" aria-label="Временный выбор цветовой темы">
+      <div id="themePickerPanel" class="theme-picker__panel" hidden>
+        <div class="theme-picker__header">
+          <div>
+            <p class="theme-picker__eyebrow">Временная настройка</p>
+            <h2>40 цветовых схем</h2>
+          </div>
+          <button id="themePickerClose" class="theme-picker__close" type="button" aria-label="Закрыть выбор темы">×</button>
+        </div>
+        <p class="theme-picker__hint">Нажмите на вариант, чтобы сразу примерить его на сайте.</p>
+        <div id="themeOptions" class="theme-options"></div>
+      </div>
+      <button
+        id="themePickerToggle"
+        class="theme-picker__toggle"
+        type="button"
+        aria-controls="themePickerPanel"
+        aria-expanded="false"
+      >
+        <span class="theme-picker__toggle-swatch" aria-hidden="true"></span>
+        <span>Цвета: <strong id="themePickerCurrent">Шалфей</strong></span>
+      </button>
+    </aside>
 
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
     <script type="module" src="/src/main.ts"></script>

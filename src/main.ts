@@ -2,6 +2,7 @@ import './styles.css';
 import { FEATURE_TAGS, FORM_TAGS, SHEET_ID, SHEET_URL } from './config';
 import { fetchFormats, readCache, writeCache } from './data';
 import { countActiveFilters, countTag, DEFAULT_FILTERS, filterFormats } from './filters';
+import { initializeThemePicker } from './theme-picker';
 import type { FilterState, FormatRecord, FurnitureFilter, OptionalBoolean, TriState } from './types';
 import { readFiltersFromUrl, writeFiltersToUrl } from './url-state';
 
@@ -13,9 +14,6 @@ function element<T extends HTMLElement>(selector: string): T {
 
 const searchInput = element<HTMLInputElement>('#searchInput');
 const clearSearch = element<HTMLButtonElement>('#clearSearch');
-const dataStatus = element<HTMLElement>('#dataStatus');
-const dataStatusText = element<HTMLElement>('#dataStatusText');
-const retryButton = element<HTMLButtonElement>('#retryButton');
 const catalog = element<HTMLElement>('#catalog');
 const filtersPanel = element<HTMLElement>('#filtersPanel');
 const filtersToggle = element<HTMLButtonElement>('#filtersToggle');
@@ -60,6 +58,8 @@ let filters: FilterState = readFiltersFromUrl(new URL(window.location.href));
 let selectedTriggerId: string | null = null;
 let toastTimer: number | undefined;
 let loadController: AbortController | null = null;
+
+initializeThemePicker();
 
 type ResizablePanel = 'filters' | 'detail';
 
@@ -206,23 +206,6 @@ function pluralizeFormats(count: number): string {
   if (mod10 === 1) return 'формат';
   if (mod10 >= 2 && mod10 <= 4) return 'формата';
   return 'форматов';
-}
-
-function formatFetchedAt(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'время неизвестно';
-  return new Intl.DateTimeFormat('ru', {
-    day: 'numeric',
-    month: 'long',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(date);
-}
-
-function setDataStatus(kind: 'loading' | 'fresh' | 'cached' | 'error', message: string, canRetry = false): void {
-  dataStatus.dataset.kind = kind;
-  dataStatusText.textContent = message;
-  retryButton.hidden = !canRetry;
 }
 
 function showToast(message: string): void {
@@ -518,24 +501,19 @@ async function copyCurrentLink(): Promise<void> {
 async function loadFreshData(): Promise<void> {
   loadController?.abort();
   loadController = new AbortController();
-  setDataStatus('loading', records.length > 0 ? 'Проверяем обновления…' : 'Загружаем форматы…');
   try {
     const freshRecords = await fetchFormats(loadController.signal);
     records = freshRecords;
-    const cached = writeCache(records);
+    writeCache(records);
     render();
-    const timestamp = cached?.fetchedAt ?? new Date().toISOString();
-    setDataStatus('fresh', `Обновлено ${formatFetchedAt(timestamp)}`);
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') return;
     const reason = error instanceof Error ? error.message : 'Неизвестная ошибка.';
     if (records.length > 0) {
-      const cached = readCache();
-      const suffix = cached ? ` Последняя загрузка: ${formatFetchedAt(cached.fetchedAt)}.` : '';
-      setDataStatus('cached', `Google Sheets недоступен. Показываем сохранённые данные.${suffix}`, true);
+      showToast('Не удалось обновить данные — показываем сохранённые');
     } else {
       render();
-      setDataStatus('error', reason, true);
+      showToast(`Не удалось загрузить данные: ${reason}`);
     }
   }
 }
@@ -578,7 +556,6 @@ clearSearch.addEventListener('click', () => {
 });
 [resetFilters, resetFiltersTop].forEach((button) => button.addEventListener('click', resetAll));
 emptyReset.addEventListener('click', () => records.length > 0 ? resetAll() : void loadFreshData());
-retryButton.addEventListener('click', () => void loadFreshData());
 filtersToggle.addEventListener('click', () => {
   const isOpen = filtersPanel.classList.toggle('is-open');
   filtersToggle.setAttribute('aria-expanded', String(isOpen));
@@ -597,7 +574,6 @@ window.addEventListener('popstate', () => {
 const cached = readCache();
 if (cached) {
   records = cached.records;
-  setDataStatus('cached', `Показываем сохранённые данные от ${formatFetchedAt(cached.fetchedAt)}`);
 }
 initializePanelResize();
 render();
