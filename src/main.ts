@@ -2,7 +2,6 @@ import './styles.css';
 import { FEATURE_TAGS, FORM_TAGS, SHEET_ID, SHEET_URL } from './config';
 import { fetchFormats, readCache, writeCache } from './data';
 import { countActiveFilters, countTag, DEFAULT_FILTERS, filterFormats } from './filters';
-import { initializeThemePicker } from './theme-picker';
 import type { FilterState, FormatRecord, FurnitureFilter, OptionalBoolean, TriState } from './types';
 import { readFiltersFromUrl, writeFiltersToUrl } from './url-state';
 
@@ -58,8 +57,6 @@ let filters: FilterState = readFiltersFromUrl(new URL(window.location.href));
 let selectedTriggerId: string | null = null;
 let toastTimer: number | undefined;
 let loadController: AbortController | null = null;
-
-initializeThemePicker();
 
 type ResizablePanel = 'filters' | 'detail';
 
