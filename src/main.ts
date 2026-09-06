@@ -290,6 +290,13 @@ function renderSelectedFilters(): void {
     button.type = 'button';
     button.className = 'selected-filter';
     button.dataset.filterKey = key;
+    button.dataset.filterType = key === 'query'
+      ? 'query'
+      : key === 'form'
+        ? 'form'
+        : key.startsWith('feature:')
+          ? 'feature'
+          : 'condition';
     button.textContent = `${label} ×`;
     button.setAttribute('aria-label', `Убрать фильтр: ${label}`);
     button.addEventListener('click', () => {
@@ -608,18 +615,43 @@ clearSearch.addEventListener('click', () => {
 });
 [resetFilters, resetFiltersTop].forEach((button) => button.addEventListener('click', resetAll));
 emptyReset.addEventListener('click', () => records.length > 0 ? resetAll() : void loadFreshData());
-function collapseFilters(): void {
+function collapseFilters(onComplete?: () => void): void {
+  const wasOpen = filtersPanel.classList.contains('is-open');
   filtersPanel.classList.remove('is-open');
   filtersToggle.setAttribute('aria-expanded', 'false');
+  if (!onComplete) return;
+
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (!wasOpen || !mobileQuery.matches || reducedMotion) {
+    requestAnimationFrame(onComplete);
+    return;
+  }
+
+  let settled = false;
+  let fallbackId = 0;
+  const finish = (): void => {
+    if (settled) return;
+    settled = true;
+    filtersPanel.removeEventListener('transitionend', handleTransitionEnd);
+    window.clearTimeout(fallbackId);
+    onComplete();
+  };
+  const handleTransitionEnd = (event: TransitionEvent): void => {
+    if (event.target === filtersPanel && event.propertyName === 'max-height') finish();
+  };
+  filtersPanel.addEventListener('transitionend', handleTransitionEnd);
+  fallbackId = window.setTimeout(finish, 420);
 }
 filtersToggle.addEventListener('click', () => {
   const open = filtersPanel.classList.toggle('is-open');
   filtersToggle.setAttribute('aria-expanded', String(open));
 });
 showFilterResults.addEventListener('click', () => {
-  collapseFilters();
-  resultsHeading.focus({ preventScroll: true });
-  resultsHeading.scrollIntoView({ block: 'start' });
+  collapseFilters(() => {
+    const resultsSummary = resultsHeading.closest<HTMLElement>('.results__heading') ?? resultsHeading;
+    resultsHeading.focus({ preventScroll: true });
+    resultsSummary.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
 });
 filtersPanel.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && filtersPanel.classList.contains('is-open') && !resizablePanelsQuery.matches) {
