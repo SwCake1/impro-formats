@@ -1,7 +1,7 @@
 import './styles.css';
 import { FEATURE_TAGS, FORM_TAGS, SHEET_ID, SHEET_URL } from './config';
 import { fetchFormats, readCache, writeCache } from './data';
-import { countActiveFilters, countTag, DEFAULT_FILTERS, filterFormats } from './filters';
+import { countActiveFilters, DEFAULT_FILTERS, filterFormats } from './filters';
 import type { FilterState, FormatRecord, FurnitureFilter, OptionalBoolean, TriState } from './types';
 import { readFiltersFromUrl, writeFiltersToUrl } from './url-state';
 
@@ -16,6 +16,7 @@ const clearSearch = element<HTMLButtonElement>('#clearSearch');
 const catalog = element<HTMLElement>('#catalog');
 const filtersPanel = element<HTMLElement>('#filtersPanel');
 const filtersToggle = element<HTMLButtonElement>('#filtersToggle');
+const showFilterResults = element<HTMLButtonElement>('#showFilterResults');
 const filtersResizeHandle = element<HTMLElement>('#filtersResizeHandle');
 const detailResizeHandle = element<HTMLElement>('#detailResizeHandle');
 const activeFiltersCount = element<HTMLElement>('#activeFiltersCount');
@@ -96,7 +97,7 @@ function panelWidthLimits(panel: ResizablePanel): { min: number; max: number } {
 
   return {
     min: 360,
-    max: Math.max(360, Math.min(720, catalogWidth - currentPanelWidth('filters') - 36 - 380)),
+    max: Math.max(360, Math.min(720, catalogWidth - (currentPanelWidth('filters') + 36) - 380)),
   };
 }
 
@@ -221,27 +222,28 @@ function syncUrl(mode: 'replace' | 'push' = 'replace'): void {
   window.history[mode === 'push' ? 'pushState' : 'replaceState']({}, '', url);
 }
 
-function createTapeButton(tag: string, count: number, selected: boolean, onClick: () => void): HTMLButtonElement {
+function createTapeButton(tag: string, selected: boolean, onClick: () => void): HTMLButtonElement {
   const button = document.createElement('button');
   button.type = 'button';
   button.className = 'tape-filter';
+  button.dataset.filterKey = tag;
   button.setAttribute('aria-pressed', String(selected));
   button.addEventListener('click', onClick);
 
-  const label = document.createElement('span');
-  label.textContent = tag;
-  const countLabel = document.createElement('span');
-  countLabel.className = 'tape-filter__count';
-  countLabel.textContent = String(count);
-  countLabel.setAttribute('aria-label', `${count} форматов`);
-  button.append(label, countLabel);
+  button.textContent = tag;
   return button;
 }
 
 function renderFilterButtons(): void {
   formFilters.replaceChildren();
+  formFilters.append(createTapeButton('Все формы', !filters.formTag, () => {
+    filters.formTag = null;
+    filters.selectedId = null;
+    syncUrl();
+    render();
+  }));
   FORM_TAGS.forEach((tag) => {
-    formFilters.append(createTapeButton(tag, countTag(records, tag), filters.formTag === tag, () => {
+    formFilters.append(createTapeButton(tag, filters.formTag === tag, () => {
       filters.formTag = filters.formTag === tag ? null : tag;
       filters.selectedId = null;
       syncUrl();
@@ -251,7 +253,7 @@ function renderFilterButtons(): void {
 
   featureFilters.replaceChildren();
   FEATURE_TAGS.forEach((tag) => {
-    featureFilters.append(createTapeButton(tag, countTag(records, tag), filters.featureTags.includes(tag), () => {
+    featureFilters.append(createTapeButton(tag, filters.featureTags.includes(tag), () => {
       filters.featureTags = filters.featureTags.includes(tag)
         ? filters.featureTags.filter((value) => value !== tag)
         : [...filters.featureTags, tag];
@@ -274,6 +276,49 @@ function syncControls(): void {
   activeFiltersCount.textContent = String(activeCount);
   activeFiltersCount.hidden = activeCount === 0;
   resetFilters.hidden = activeCount === 0;
+  resetFiltersTop.hidden = activeCount === 0;
+  element('#featuresCount').textContent = filters.featureTags.length ? `· ${filters.featureTags.length}` : '';
+  const conditionsCount = [filters.moderator, filters.audience, filters.props, filters.furniture].filter((value) => value !== 'any').length;
+  element('#conditionsCount').textContent = conditionsCount ? `· ${conditionsCount}` : '';
+}
+
+function renderSelectedFilters(): void {
+  const container = element('#selectedFilters');
+  container.replaceChildren();
+  function add(label: string, key: string, remove: () => void): void {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'selected-filter';
+    button.dataset.filterKey = key;
+    button.textContent = `${label} ×`;
+    button.setAttribute('aria-label', `Убрать фильтр: ${label}`);
+    button.addEventListener('click', () => {
+      remove();
+      filters.selectedId = null;
+      syncUrl();
+      render();
+      (container.querySelector<HTMLButtonElement>('button') ?? searchInput).focus();
+    });
+    container.append(button);
+  }
+  if (filters.query.trim()) add(`Поиск: ${filters.query}`, 'query', () => { filters.query = ''; });
+  if (filters.formTag) add(filters.formTag, 'form', () => { filters.formTag = null; });
+  filters.featureTags.forEach((tag) => add(tag, `feature:${tag}`, () => {
+    filters.featureTags = filters.featureTags.filter((value) => value !== tag);
+  }));
+  const conditions = [
+    ['moderator', 'С модератором', 'Без модератора'],
+    ['audience', 'Со зрителем на сцене', 'Без зрителя на сцене'],
+    ['props', 'С реквизитом', 'Без реквизита'],
+  ] as const;
+  conditions.forEach(([key, yes, no]) => {
+    if (filters[key] !== 'any') add(filters[key] === 'yes' ? yes : no, key, () => { filters[key] = 'any'; });
+  });
+  if (filters.furniture !== 'any') {
+    const labels = { none: 'Без мебели', chairs: 'Нужны стулья', tables: 'Нужен стол' };
+    add(labels[filters.furniture], 'furniture', () => { filters.furniture = 'any'; });
+  }
+  container.hidden = !container.childElementCount;
 }
 
 function appendTag(container: HTMLElement, tag: string): void {
@@ -406,6 +451,10 @@ function renderResults(): void {
   }
 
   resultsCount.textContent = String(filtered.length);
+  element('#resultsUnit').textContent = pluralizeFormats(filtered.length);
+  showFilterResults.textContent = filtered.length > 0
+    ? `Показать ${filtered.length} ${pluralizeFormats(filtered.length)}`
+    : 'К результатам';
   resultsHeading.setAttribute('aria-label', `${filtered.length} ${pluralizeFormats(filtered.length)}`);
   formatsList.replaceChildren(...filtered.map(createFormatRow));
 
@@ -419,10 +468,16 @@ function renderResults(): void {
 }
 
 function render(): void {
+  const active = document.activeElement as HTMLElement | null;
+  const filterKey = active?.dataset.filterKey;
   syncControls();
   renderFilterButtons();
+  renderSelectedFilters();
   renderResults();
   renderDetail();
+  if (filterKey && active && !active.isConnected) {
+    document.querySelector<HTMLElement>(`[data-filter-key="${CSS.escape(filterKey)}"]`)?.focus();
+  }
 }
 
 function selectFormat(id: string, trigger?: HTMLElement): void {
@@ -553,9 +608,29 @@ clearSearch.addEventListener('click', () => {
 });
 [resetFilters, resetFiltersTop].forEach((button) => button.addEventListener('click', resetAll));
 emptyReset.addEventListener('click', () => records.length > 0 ? resetAll() : void loadFreshData());
+function collapseFilters(): void {
+  filtersPanel.classList.remove('is-open');
+  filtersToggle.setAttribute('aria-expanded', 'false');
+}
 filtersToggle.addEventListener('click', () => {
-  const isOpen = filtersPanel.classList.toggle('is-open');
-  filtersToggle.setAttribute('aria-expanded', String(isOpen));
+  const open = filtersPanel.classList.toggle('is-open');
+  filtersToggle.setAttribute('aria-expanded', String(open));
+});
+showFilterResults.addEventListener('click', () => {
+  collapseFilters();
+  resultsHeading.focus({ preventScroll: true });
+  resultsHeading.scrollIntoView({ block: 'start' });
+});
+filtersPanel.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && filtersPanel.classList.contains('is-open') && !resizablePanelsQuery.matches) {
+    collapseFilters();
+    filtersToggle.focus();
+  }
+});
+resizablePanelsQuery.addEventListener('change', ({ matches }) => {
+  if (!matches && filtersPanel.contains(document.activeElement) && !filtersPanel.classList.contains('is-open')) {
+    filtersToggle.focus();
+  }
 });
 closeDetail.addEventListener('click', closeSelectedFormat);
 detailBackdrop.addEventListener('click', closeSelectedFormat);

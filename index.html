@@ -94,57 +94,62 @@
 
       <aside id="filtersPanel" class="filters" aria-label="Фильтры каталога">
         <div class="filter-heading">
-          <h2>Подобрать формат</h2>
+          <h2 id="filtersTitle">Фильтры</h2>
           <button id="resetFiltersTop" class="text-button" type="button">Сбросить</button>
         </div>
 
-        <fieldset class="filter-group">
+        <fieldset class="filter-group filter-group--form">
           <legend>Форма</legend>
           <div id="formFilters" class="tape-filters"></div>
         </fieldset>
 
-        <fieldset class="filter-group">
-          <legend>Особенности</legend>
-          <div id="featureFilters" class="tape-filters"></div>
-          <p class="filter-hint">Несколько выбранных тегов применяются вместе.</p>
-        </fieldset>
+        <details class="filter-disclosure" id="featuresDisclosure" open>
+          <summary>Особенности <span id="featuresCount"></span></summary>
+          <div class="filter-disclosure__content">
+            <div id="featureFilters" class="tape-filters"></div>
+            <p class="filter-hint">Все выбранные особенности — вместе.</p>
+          </div>
+        </details>
 
-        <div class="filter-group filter-group--requirements">
-          <h3>Условия на сцене</h3>
-          <label class="select-field">
-            <span>Модератор</span>
-            <select id="moderatorFilter">
-              <option value="any">Неважно</option>
-              <option value="yes">Нужен</option>
-              <option value="no">Не нужен</option>
-            </select>
-          </label>
-          <label class="select-field">
-            <span>Зритель на сцене</span>
-            <select id="audienceFilter">
-              <option value="any">Неважно</option>
-              <option value="yes">Нужен</option>
-              <option value="no">Не нужен</option>
-            </select>
-          </label>
-          <label class="select-field">
-            <span>Реквизит</span>
-            <select id="propsFilter">
-              <option value="any">Неважно</option>
-              <option value="yes">Нужен</option>
-              <option value="no">Не нужен</option>
-            </select>
-          </label>
-          <label class="select-field">
-            <span>Мебель</span>
-            <select id="furnitureFilter">
-              <option value="any">Неважно</option>
-              <option value="none">Не нужна</option>
-              <option value="chairs">Нужны стулья</option>
-              <option value="tables">Нужен стол</option>
-            </select>
-          </label>
-        </div>
+        <details class="filter-disclosure" id="conditionsDisclosure" open>
+          <summary>Условия на сцене <span id="conditionsCount"></span></summary>
+          <div class="filter-disclosure__content filter-group--requirements">
+            <label class="select-field">
+              <span>Модератор</span>
+              <select id="moderatorFilter">
+                <option value="any">Неважно</option>
+                <option value="yes">Нужен</option>
+                <option value="no">Не нужен</option>
+              </select>
+            </label>
+            <label class="select-field">
+              <span>Зритель на сцене</span>
+              <select id="audienceFilter">
+                <option value="any">Неважно</option>
+                <option value="yes">Нужен</option>
+                <option value="no">Не нужен</option>
+              </select>
+            </label>
+            <label class="select-field">
+              <span>Реквизит</span>
+              <select id="propsFilter">
+                <option value="any">Неважно</option>
+                <option value="yes">Нужен</option>
+                <option value="no">Не нужен</option>
+              </select>
+            </label>
+            <label class="select-field">
+              <span>Мебель</span>
+              <select id="furnitureFilter">
+                <option value="any">Неважно</option>
+                <option value="none">Не нужна</option>
+                <option value="chairs">Нужны стулья</option>
+                <option value="tables">Нужен стол</option>
+              </select>
+            </label>
+          </div>
+        </details>
+        <button id="showFilterResults" class="button button--primary filters-results-button" type="button">Показать форматы</button>
       </aside>
 
       <div
@@ -161,10 +166,11 @@
       ></div>
 
       <section class="results" aria-labelledby="resultsHeading">
+        <div id="selectedFilters" class="selected-filters" aria-label="Выбранные фильтры" hidden></div>
         <div class="results__heading">
           <div>
             <p class="section-kicker">Результаты</p>
-            <h2 id="resultsHeading"><span id="resultsCount">0</span> форматов</h2>
+            <h2 id="resultsHeading" tabindex="-1"><span id="resultsCount">0</span> <span id="resultsUnit">форматов</span></h2>
           </div>
           <button id="resetFilters" class="button button--quiet" type="button" hidden>
             Сбросить фильтры
