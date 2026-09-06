@@ -1057,7 +1057,9 @@ body.is-resizing-panels {
     position: static;
     display: block;
     max-height: 0;
-    padding-block: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
     overflow: hidden;
     opacity: 0;
     visibility: hidden;
@@ -1065,7 +1067,9 @@ body.is-resizing-panels {
   }
   .filters.is-open {
     max-height: 2000px;
-    padding-block: 16px;
+    padding: 16px;
+    border: 1px solid var(--line);
+    background: var(--surface);
     opacity: 1;
     visibility: visible;
     transition: max-height 360ms ease, padding-block 360ms ease, opacity 180ms ease;
@@ -1077,7 +1081,7 @@ body.is-resizing-panels {
   .filters-toggle { gap: 8px; }
   .select-field { grid-template-columns: minmax(0, 1fr) minmax(152px, 1.1fr); }
   .select-field select { font-size: 16px; }
-  .results__heading { top: 10px; }
+  .results__heading { position: sticky; top: 0; }
 
   @media (prefers-reduced-motion: reduce) {
     .filters,
@@ -1122,7 +1126,6 @@ body.is-resizing-panels {
     font-size: 16px;
   }
 
-  .filters { padding: 16px; }
   .format-row { padding: 16px; }
   .format-row__description { -webkit-line-clamp: 4; }
 

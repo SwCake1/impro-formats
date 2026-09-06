@@ -642,16 +642,24 @@ function collapseFilters(onComplete?: () => void): void {
   filtersPanel.addEventListener('transitionend', handleTransitionEnd);
   fallbackId = window.setTimeout(finish, 420);
 }
+function scrollToResultsSummary(): void {
+  const resultsSummary = resultsHeading.closest<HTMLElement>('.results__heading') ?? resultsHeading;
+  resultsHeading.focus({ preventScroll: true });
+  resultsSummary.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+function scrollToCatalogTop(): void {
+  element<HTMLElement>('#catalog').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
 filtersToggle.addEventListener('click', () => {
   const open = filtersPanel.classList.toggle('is-open');
   filtersToggle.setAttribute('aria-expanded', String(open));
 });
 showFilterResults.addEventListener('click', () => {
-  collapseFilters(() => {
-    const resultsSummary = resultsHeading.closest<HTMLElement>('.results__heading') ?? resultsHeading;
-    resultsHeading.focus({ preventScroll: true });
-    resultsSummary.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  });
+  collapseFilters(scrollToResultsSummary);
+});
+resultsHeading.closest<HTMLElement>('.results__heading')?.addEventListener('click', (event) => {
+  if ((event.target as HTMLElement).closest('button')) return;
+  scrollToCatalogTop();
 });
 filtersPanel.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && filtersPanel.classList.contains('is-open') && !resizablePanelsQuery.matches) {
