@@ -555,9 +555,11 @@ async function loadFreshData(): Promise<void> {
   loadController?.abort();
   loadController = new AbortController();
   try {
-    const freshRecords = await fetchFormats(loadController.signal);
-    records = freshRecords;
-    writeCache(records);
+    const fresh = await fetchFormats(loadController.signal, cached);
+    if (fresh === cached) return;
+    cached = fresh;
+    records = fresh.records;
+    writeCache(fresh);
     render();
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') return;
@@ -677,7 +679,7 @@ window.addEventListener('popstate', () => {
   syncDetailMode();
 });
 
-const cached = readCache();
+let cached = readCache();
 if (cached) {
   records = cached.records;
 }

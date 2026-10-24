@@ -30,5 +30,6 @@ export interface FilterState {
 export interface CachedFormats {
   schemaVersion: 2;
   fetchedAt: string;
+  etag: string | null;
   records: FormatRecord[];
 }

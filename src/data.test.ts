@@ -21,7 +21,17 @@ const catalog = (records: unknown = [rawRecord]) => ({
   records,
 });
 
-afterEach(() => vi.unstubAllGlobals());
+const cachedCatalog = (etag: string | null = '"catalog-v1"') => ({
+  schemaVersion: 2 as const,
+  fetchedAt: '2026-10-24T10:00:00.000Z',
+  etag,
+  records: parseFormatsJson(catalog()),
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
 
 describe('parseFormatsJson', () => {
   it('preserves sheet IDs, text, unknown flags and tags, and prepares search and furniture filters', () => {
@@ -97,14 +107,59 @@ describe('parseFormatsJson', () => {
 });
 
 describe('fetchFormats', () => {
-  it('loads the local JSON snapshot with cancellation and without a stale HTTP cache', async () => {
+  it('revalidates the HTTP cache and keeps the ETag for later loads', async () => {
     const signal = new AbortController().signal;
-    const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify(catalog())));
+    const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify(catalog()), { headers: { ETag: '"catalog-v1"' } }));
     vi.stubGlobal('fetch', fetch);
 
-    expect((await fetchFormats(signal))[0]?.id).toBe('2-komnaty');
-    expect(fetch).toHaveBeenCalledWith(DATA_URL, { cache: 'no-store', signal });
+    const fresh = await fetchFormats(signal);
+    expect(fresh.records[0]?.id).toBe('2-komnaty');
+    expect(fresh.etag).toBe('"catalog-v1"');
+    expect(fetch).toHaveBeenCalledWith(DATA_URL, { cache: 'no-cache', signal });
     expect(DATA_URL).toBe(import.meta.env.BASE_URL + 'data/formats.json');
+  });
+
+  it('reuses cached records without parsing the response when the ETag is unchanged', async () => {
+    const cached = cachedCatalog();
+    const response = new Response('Тело не требуется', { headers: { ETag: cached.etag! } });
+    const json = vi.spyOn(response, 'json');
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response));
+
+    expect(await fetchFormats(undefined, cached)).toBe(cached);
+    expect(json).not.toHaveBeenCalled();
+    expect(response.bodyUsed).toBe(false);
+  });
+
+  it('loads and caches a new publication when its ETag changes', async () => {
+    const cached = cachedCatalog();
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(catalog([
+      { ...rawRecord, title: 'Новое название' },
+    ])), { headers: { ETag: '"catalog-v2"' } })));
+
+    const fresh = await fetchFormats(undefined, cached);
+    expect(fresh).not.toBe(cached);
+    expect(fresh.etag).toBe('"catalog-v2"');
+    expect(fresh.records[0].title).toBe('Новое название');
+    expect(cached.records[0].title).toBe(rawRecord.title);
+  });
+
+  it('parses the response when the server does not provide an ETag', async () => {
+    const cached = cachedCatalog();
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(catalog()))));
+    const fresh = await fetchFormats(undefined, cached);
+    expect(fresh).not.toBe(cached);
+    expect(fresh.etag).toBeNull();
+    expect(fresh.records).toEqual(cached.records);
+  });
+
+  it('keeps the previous cache when the new publication is malformed', async () => {
+    const cached = cachedCatalog();
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(catalog([])), {
+      headers: { ETag: '"broken-publication"' },
+    })));
+    await expect(fetchFormats(undefined, cached)).rejects.toThrow(CatalogFormatError);
+    expect(cached.etag).toBe('"catalog-v1"');
+    expect(cached.records[0].id).toBe(rawRecord.id);
   });
 
   it('reports failed requests instead of replacing valid data with an error page', async () => {
@@ -129,10 +184,50 @@ describe('cache', () => {
 
   it('round-trips records with the sheet IDs and unknown flags', () => {
     const target = storage();
-    const records = parseFormatsJson(catalog());
+    const cached = cachedCatalog();
+    writeCache(cached, target);
+    expect(readCache(target)).toEqual(cached);
+  });
 
-    writeCache(records, '2026-10-24T10:00:00.000Z', target);
-    expect(readCache(target)?.records).toEqual(records);
+  it('reuses a persisted ETag after a simulated page reload', async () => {
+    const target = storage();
+    writeCache(cachedCatalog(), target);
+    const restored = readCache(target)!;
+    const response = new Response('', { headers: { ETag: restored.etag! } });
+    const json = vi.spyOn(response, 'json');
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response));
+    expect(await fetchFormats(undefined, restored)).toBe(restored);
+    expect(json).not.toHaveBeenCalled();
+  });
+
+  it('accepts an existing v2 cache without an ETag', () => {
+    const target = storage();
+    const { etag: _etag, ...oldCache } = cachedCatalog();
+    target.setItem('impro-formats:data:v2', JSON.stringify(oldCache));
+    expect(readCache(target)?.records).toEqual(oldCache.records);
+    expect(readCache(target)?.etag).toBeNull();
+  });
+
+  it('handles unavailable storage, including a denied localStorage getter', () => {
+    const original = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      get() { throw new DOMException('Storage denied', 'SecurityError'); },
+    });
+    try {
+      expect(readCache()).toBeNull();
+      expect(writeCache(cachedCatalog())).toBeNull();
+    } finally {
+      if (original) Object.defineProperty(globalThis, 'localStorage', original);
+      else Reflect.deleteProperty(globalThis, 'localStorage');
+    }
+  });
+
+  it('handles quota errors without losing the in-memory catalog', () => {
+    const cached = cachedCatalog();
+    const target = { setItem() { throw new DOMException('Quota exceeded', 'QuotaExceededError'); } };
+    expect(writeCache(cached, target)).toBeNull();
+    expect(cached.records[0].id).toBe(rawRecord.id);
   });
 
   it('ignores the legacy cache with generated IDs', () => {

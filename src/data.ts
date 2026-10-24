@@ -96,33 +96,47 @@ export function parseFormatsJson(value: unknown): FormatRecord[] {
   return parseRecords(catalog.records);
 }
 
-export async function fetchFormats(signal?: AbortSignal): Promise<FormatRecord[]> {
-  const response = await fetch(DATA_URL, { cache: 'no-store', signal });
+export async function fetchFormats(
+  signal?: AbortSignal,
+  cached?: CachedFormats | null,
+): Promise<CachedFormats> {
+  // Браузер проверяет HTTP-кэш у сервера и сам обрабатывает ответы 304.
+  const response = await fetch(DATA_URL, { cache: 'no-cache', signal });
   if (!response.ok) throw new Error('Не удалось загрузить каталог (HTTP ' + response.status + ').');
-  return parseFormatsJson(await response.json());
+  const etag = response.headers.get('ETag') || null;
+  if (cached && etag && cached.etag === etag) return cached;
+  return {
+    schemaVersion: 2,
+    fetchedAt: new Date().toISOString(),
+    etag,
+    records: parseFormatsJson(await response.json()),
+  };
 }
 
-export function readCache(storage: Pick<Storage, 'getItem'> = localStorage): CachedFormats | null {
+export function readCache(storage?: Pick<Storage, 'getItem'>): CachedFormats | null {
   try {
-    const raw = storage.getItem(CACHE_KEY);
+    const raw = (storage ?? localStorage).getItem(CACHE_KEY);
     if (!raw) return null;
     const parsed = object(JSON.parse(raw));
     if (parsed.schemaVersion !== 2 || !isTimestamp(parsed.fetchedAt)) return null;
-    return { schemaVersion: 2, fetchedAt: parsed.fetchedAt, records: parseRecords(parsed.records) };
+    return {
+      schemaVersion: 2,
+      fetchedAt: parsed.fetchedAt,
+      etag: typeof parsed.etag === 'string' ? parsed.etag : null,
+      records: parseRecords(parsed.records),
+    };
   } catch {
     return null;
   }
 }
 
 export function writeCache(
-  records: FormatRecord[],
-  fetchedAt = new Date().toISOString(),
-  storage: Pick<Storage, 'setItem'> = localStorage,
+  cached: CachedFormats,
+  storage?: Pick<Storage, 'setItem'>,
 ): CachedFormats | null {
-  const payload: CachedFormats = { schemaVersion: 2, fetchedAt, records };
   try {
-    storage.setItem(CACHE_KEY, JSON.stringify(payload));
-    return payload;
+    (storage ?? localStorage).setItem(CACHE_KEY, JSON.stringify(cached));
+    return cached;
   } catch {
     return null;
   }
