@@ -131,21 +131,32 @@ function readFormats_() {
   const newIds = [];
   rows.slice(1).forEach((row, index) => {
     if (String(row[0] || '').trim() || !String(row[1] || '').trim()) return;
-    let id;
-    for (let attempt = 0; attempt < 10; attempt++) {
-      const candidate = 'format-' + Utilities.getUuid().toLowerCase();
-      if (!usedIds.has(candidate)) {
-        id = candidate;
-        break;
-      }
+    const base = formatIdBase_(String(row[1]).trim());
+    if (!base) {
+      throw new Error('Строка ' + (index + 2) + ': не удалось получить id из названия. Укажите id латиницей в колонке A.');
     }
-    if (!id) throw new Error('Не удалось создать уникальный id. Повторите Publish.');
+    let id = base;
+    let suffix = 2;
+    while (usedIds.has(id)) id = base + '-' + suffix++;
     usedIds.add(id);
     row[0] = id;
     newIds.push({ row: index + 2, id });
   });
   // Проверка всего каталога происходит до записи любых значений в таблицу.
   return { sheet, records: parseFormatRows_(rows), newIds };
+}
+
+function formatIdBase_(title) {
+  const letters = {
+    а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'e', ж: 'zh', з: 'z',
+    и: 'i', й: 'y', к: 'k', л: 'l', м: 'm', н: 'n', о: 'o', п: 'p', р: 'r',
+    с: 's', т: 't', у: 'u', ф: 'f', х: 'kh', ц: 'ts', ч: 'ch', ш: 'sh', щ: 'shch',
+    ъ: '', ы: 'y', ь: '', э: 'e', ю: 'yu', я: 'ya',
+  };
+  return title.normalize('NFKC').toLowerCase()
+    .replace(/[а-яё]/g, (letter) => letters[letter])
+    .normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 }
 
 function parseFormatRows_(rows) {

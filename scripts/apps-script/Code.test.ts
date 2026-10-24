@@ -18,6 +18,22 @@ const fromRows = (rows: string[][]) => ({
 });
 const row = ['2-komnaty', '2 комнаты', 'Первая строка\nВторая строка', 'TRUE', 'FALSE', '', 'Стулья', '', 'Короткая форма', 'Угадайки', 'JAM, Иностранные'];
 
+describe('readable IDs', () => {
+  const idScript = new Script(source + '\nformatIdBase_(inputTitle);');
+  it.each([
+    { title: 'Тест', id: 'test' },
+    { title: 'Новый формат', id: 'novyy-format' },
+    { title: 'Ёжик, щука и чай', id: 'ezhik-shchuka-i-chay' },
+    { title: 'Съешь ещё этих мягких французских булок', id: 'sesh-eshche-etikh-myagkikh-frantsuzskikh-bulok' },
+    { title: '10 жанров / Scene 3 Ways', id: '10-zhanrov-scene-3-ways' },
+    { title: '  Café — déjà vu! ', id: 'cafe-deja-vu' },
+    { title: 'Новый__формат... (ещё один)', id: 'novyy-format-eshche-odin' },
+    { title: 'ROCK & ROLL', id: 'rock-roll' },
+  ])('transliterates $title to $id', ({ title, id }) => {
+    expect(idScript.runInNewContext({ inputTitle: title })).toBe(id);
+  });
+});
+
 describe('Apps Script format validation', () => {
   it('keeps empty and multiple classifications independent, deduplicating within each column', () => {
     const classified = [...row.slice(0, 8), 'Короткая форма, Длинная форма', 'JAM', 'JAM, Иностранные, JAM'];
@@ -93,9 +109,7 @@ describe('Apps Script Publish', () => {
     let deployStatus = 200;
     let deployError: Error | null = null;
     let failIdWrite = false;
-    let nextUuid = 0;
     const events: string[] = [];
-    const getUuid = vi.fn(() => '00000000-0000-4000-8000-' + String(++nextUuid).padStart(12, '0'));
     const idWrite = vi.fn((rowNumber: number, value: string) => {
       if (failIdWrite) throw new Error('Ошибка записи id');
       events.push('id');
@@ -145,7 +159,6 @@ describe('Apps Script Publish', () => {
       },
       PropertiesService: { getScriptProperties: () => ({ getProperty }) },
       UrlFetchApp: { fetch: deploy },
-      Utilities: { getUuid },
       LockService: { getDocumentLock: () => lock },
       console: { log: vi.fn() },
     };
@@ -157,11 +170,11 @@ describe('Apps Script Publish', () => {
       failIdWrite: () => { failIdWrite = true; },
       rejectDeploy: (status: number) => { deployStatus = status; },
       failDeploy: () => { deployError = new Error('Request failed: ' + configuredHook); },
-      document, work, write, lock, deploy, getProperty, events, getUuid, idWrite,
+      document, work, write, lock, deploy, getProperty, events, idWrite,
     };
   }
 
-  it('assigns UUIDs only to new named rows, persisting them before publishing', () => {
+  it('assigns readable IDs only to new named rows, persisting them before publishing', () => {
     const first = ['', 'Новый формат', ...row.slice(2), 'Видео остаётся в рабочем листе'];
     const second = ['', 'Другой формат', ...row.slice(2)];
     const empty = Array(11).fill('');
@@ -170,8 +183,8 @@ describe('Apps Script Publish', () => {
     const state = environment(draft);
 
     expect(state.run()).toBe(3);
-    expect(first[0]).toMatch(/^format-[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/);
-    expect(second[0]).not.toBe(first[0]);
+    expect(first[0]).toBe('novyy-format');
+    expect(second[0]).toBe('drugoy-format');
     expect(state.idWrite.mock.calls).toEqual([[4, first[0]], [5, second[0]]]);
     expect(draft[1]).toEqual(original[1]);
     expect(empty).toEqual(original[2]);
@@ -192,7 +205,6 @@ describe('Apps Script Publish', () => {
     expect(record[0]).toBe(id);
     expect(state.values()[1][0]).toBe(id);
     expect(state.values()[1][1]).toBe(record[1]);
-    expect(state.getUuid).toHaveBeenCalledTimes(1);
     expect(state.idWrite).toHaveBeenCalledTimes(1);
   });
 
@@ -200,7 +212,6 @@ describe('Apps Script Publish', () => {
     const empty = Array(11).fill('');
     const state = environment([headers, [...row], empty]);
     state.run();
-    expect(state.getUuid).not.toHaveBeenCalled();
     expect(state.idWrite).not.toHaveBeenCalled();
     expect(state.values()[1][0]).toBe(row[0]);
     expect(empty[0]).toBe('');
@@ -208,32 +219,49 @@ describe('Apps Script Publish', () => {
 
   it('reserves IDs from later existing rows when resolving a generated collision', () => {
     const newRecord = ['', 'Новый формат', ...row.slice(2)];
-    const existingId = 'format-00000000-0000-4000-8000-000000000001';
+    const existingId = 'novyy-format';
     const existing = [existingId, ...row.slice(1)];
     const state = environment([headers, newRecord, existing]);
     state.run();
-    expect(newRecord[0]).not.toBe(existingId);
+    expect(newRecord[0]).toBe('novyy-format-2');
     expect(existing[0]).toBe(existingId);
-    expect(state.getUuid).toHaveBeenCalledTimes(2);
     expect(new Set(state.values().slice(1).map(record => record[0])).size).toBe(2);
   });
 
-  it('resolves collisions between new rows and stops after repeated collisions', () => {
-    const uuid = '00000000-0000-4000-8000-000000000001';
+  it('assigns the first available suffix when new and existing names collide', () => {
     const first = ['', 'Первый', ...row.slice(2)];
-    const second = ['', 'Второй', ...row.slice(2)];
-    const state = environment([headers, first, second]);
-    state.getUuid.mockReturnValueOnce(uuid).mockReturnValueOnce(uuid);
+    const second = ['', 'Первый', ...row.slice(2)];
+    const existing = ['pervyy-2', ...row.slice(1)];
+    const state = environment([headers, first, second, existing]);
     state.run();
-    expect(first[0]).not.toBe(second[0]);
+    expect(first[0]).toBe('pervyy');
+    expect(second[0]).toBe('pervyy-3');
+    expect(existing[0]).toBe('pervyy-2');
+  });
 
-    const collision = environment([headers, ['', 'Новый', ...row.slice(2)], ['format-' + uuid, ...row.slice(1)]]);
-    collision.getUuid.mockReturnValue(uuid);
-    expect(collision.run).toThrow('уникальный id');
-    expect(collision.getUuid).toHaveBeenCalledTimes(10);
-    expect(collision.idWrite).not.toHaveBeenCalled();
-    expect(collision.write).not.toHaveBeenCalled();
-    expect(collision.deploy).not.toHaveBeenCalled();
+  it('handles titles in different scripts that produce the same readable ID', () => {
+    const draft = [headers, ...['Тест', 'Test', 'Тест!'].map(title => ['', title, ...row.slice(2)])];
+    const state = environment(draft);
+    state.run();
+    expect(draft.slice(1).map(record => record[0])).toEqual(['test', 'test-2', 'test-3']);
+  });
+
+  it('preserves a previously assigned ID even when it differs from the title transliteration', () => {
+    const id = 'format-00000000-0000-4000-8000-000000000001';
+    const state = environment([headers, [id, 'Тест', ...row.slice(2)]]);
+    state.run();
+    expect(state.values()[1][0]).toBe(id);
+    expect(state.idWrite).not.toHaveBeenCalled();
+  });
+
+  it('stops without writing when the title cannot produce a readable ID', () => {
+    const record = ['', '🐱 !!!', ...row.slice(2)];
+    const state = environment([headers, record]);
+    expect(state.run).toThrow('Укажите id латиницей в колонке A');
+    expect(record[0]).toBe('');
+    expect(state.idWrite).not.toHaveBeenCalled();
+    expect(state.write).not.toHaveBeenCalled();
+    expect(state.deploy).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -286,13 +314,13 @@ describe('Apps Script Publish', () => {
     state.idWrite.mockImplementationOnce(() => { throw new Error('Ошибка второго id'); });
     expect(state.run).toThrow('Ошибка второго id');
     const firstId = first[0];
-    expect(firstId).toMatch(/^format-/);
+    expect(firstId).toBe('pervyy');
     expect(second[0]).toBe('');
     expect(state.values()).toEqual(approved);
     expect(state.deploy).not.toHaveBeenCalled();
     state.run();
     expect(first[0]).toBe(firstId);
-    expect(second[0]).toMatch(/^format-/);
+    expect(second[0]).toBe('vtoroy');
     expect(state.values().slice(1).map(record => record[0])).toEqual([first[0], second[0]]);
   });
 
@@ -318,13 +346,12 @@ describe('Apps Script Publish', () => {
     state.failWrite();
     expect(state.run).toThrow('Ошибка записи');
     const id = record[0];
-    expect(id).toMatch(/^format-/);
+    expect(id).toBe('novyy');
     expect(state.values()).toEqual(approved);
     state.allowWrite();
     state.run();
     expect(record[0]).toBe(id);
     expect(state.values()[1][0]).toBe(id);
-    expect(state.getUuid).toHaveBeenCalledTimes(1);
     expect(state.idWrite).toHaveBeenCalledTimes(1);
   });
 
@@ -338,7 +365,6 @@ describe('Apps Script Publish', () => {
     state.rejectDeploy(200);
     state.run();
     expect(state.values()[1][0]).toBe(id);
-    expect(state.getUuid).toHaveBeenCalledTimes(1);
     expect(state.idWrite).toHaveBeenCalledTimes(1);
   });
 
