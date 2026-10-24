@@ -6,8 +6,9 @@ export class CatalogImportError extends Error {}
 const HEADERS = [
   'id', 'Название формата', 'Описание формата', 'Наличие модератора',
   'Наличие зрителя на сцене', 'Наличие реквизита', 'Наличие мебели',
-  'Дополнительно', 'Тип формата (тег)',
+  'Дополнительно', 'Форма', 'Особенности', 'Подборки',
 ];
+const LEGACY_HEADERS = [...HEADERS.slice(0, 8), 'Тип формата (тег)'];
 
 function parseCredentials(json) {
   let credentials;
@@ -42,18 +43,21 @@ export async function credentialsFromEnvironment(env) {
 }
 
 export function parsePublishedRows(rows) {
-  if (!Array.isArray(rows) || !Array.isArray(rows[0]) ||
-      !HEADERS.every((header, index) => String(rows[0][index] ?? '').trim() === header)) {
-    throw new CatalogImportError('На листе «Опубликовано» изменились колонки A–I.');
+  const matches = (headers) => Array.isArray(rows) && Array.isArray(rows[0]) &&
+    headers.every((header, index) => String(rows[0][index] ?? '').trim() === header);
+  const legacy = !matches(HEADERS) && matches(LEGACY_HEADERS);
+  const headers = legacy ? LEGACY_HEADERS : HEADERS;
+  if (!matches(headers)) {
+    throw new CatalogImportError('На листе «Опубликовано» изменились колонки A–K.');
   }
 
   const ids = new Set();
   const records = [];
   rows.slice(1).forEach((row, index) => {
     if (!Array.isArray(row)) throw new CatalogImportError('Некорректная строка снимка.');
-    const cells = HEADERS.map((_, column) => String(row[column] ?? '').trim());
+    const cells = headers.map((_, column) => String(row[column] ?? '').trim());
     if (cells.every(value => value === '')) return;
-    const [id, title, description, moderator, audience, props, furniture, note, tags] = cells;
+    const [id, title, description, moderator, audience, props, furniture, note, forms, features, collections] = cells;
     const rowNumber = index + 2;
     if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id) || ids.has(id) || !title) {
       throw new CatalogImportError(`Строка ${rowNumber}: проверь уникальный id и название.`);
@@ -67,17 +71,20 @@ export function parsePublishedRows(rows) {
       if (['false', 'нет', 'ложь'].includes(normalized)) return false;
       throw new CatalogImportError(`Строка ${rowNumber}: непонятное значение признака.`);
     };
+    const list = (value) => [...new Set(value.split(',').map(item => item.trim()).filter(Boolean))];
     records.push({
       id, title, description,
       moderator: flag(moderator),
       audienceOnStage: flag(audience),
       props: flag(props),
       furniture, note,
-      tags: tags.split(',').map(tag => tag.trim()).filter(Boolean),
+      ...(legacy ? { tags: list(forms) } : {
+        forms: list(forms), features: list(features), collections: list(collections),
+      }),
     });
   });
   if (records.length === 0) throw new CatalogImportError('Снимок пуст. Сначала выполни Publish в таблице.');
-  return { schemaVersion: 2, generatedAt: new Date().toISOString(), records };
+  return { schemaVersion: legacy ? 2 : 3, generatedAt: new Date().toISOString(), records };
 }
 
 export async function fetchPublishedCatalog({ credentials, spreadsheetId }) {
@@ -91,7 +98,7 @@ export async function fetchPublishedCatalog({ credentials, spreadsheetId }) {
       key: credentials.private_key,
       scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
     });
-    const range = encodeURIComponent("'Опубликовано'!A1:I");
+    const range = encodeURIComponent("'Опубликовано'!A1:K");
     response = await client.request({
       url: `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}`,
       method: 'GET',

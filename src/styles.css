@@ -550,7 +550,8 @@ body.is-resizing-panels {
   background: #e2eaf7;
   color: #3c527f;
 }
-.selected-filter[data-filter-type='feature'] {
+.selected-filter[data-filter-type='feature'],
+.selected-filter[data-filter-type='collection'] {
   border-color: #e2c79f;
   background: #f4e9d9;
   color: #79552e;

@@ -12,7 +12,9 @@ export interface FormatRecord {
   furniture: string;
   furnitureKinds: Array<'chairs' | 'tables'>;
   note: string;
-  tags: string[];
+  forms: string[];
+  features: string[];
+  collections: string[];
   searchText: string;
 }
 
@@ -20,6 +22,7 @@ export interface FilterState {
   query: string;
   formTag: string | null;
   featureTags: string[];
+  collectionTags: string[];
   moderator: TriState;
   audience: TriState;
   props: TriState;
@@ -28,7 +31,7 @@ export interface FilterState {
 }
 
 export interface CachedFormats {
-  schemaVersion: 2;
+  schemaVersion: 3;
   fetchedAt: string;
   etag: string | null;
   records: FormatRecord[];

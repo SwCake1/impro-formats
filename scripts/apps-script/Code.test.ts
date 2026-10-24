@@ -7,38 +7,45 @@ import { parseFormatsJson } from '../../src/data';
 const headers = [
   'id', 'Название формата', 'Описание формата', 'Наличие модератора',
   'Наличие зрителя на сцене', 'Наличие реквизита', 'Наличие мебели',
-  'Дополнительно', 'Тип формата (тег)',
+  'Дополнительно', 'Форма', 'Особенности', 'Подборки',
 ];
 const source = readFileSync(new URL('./Code.js', import.meta.url), 'utf8');
 const script = new Script(source + '\nJSON.stringify(parseFormatRows_(inputRows));');
 const fromRows = (rows: string[][]) => ({
-  schemaVersion: 2,
+  schemaVersion: 3,
   generatedAt: '2026-10-24T00:00:00.000Z',
   records: JSON.parse(script.runInNewContext({ inputRows: rows })),
 });
-const row = ['2-komnaty', '2 комнаты', 'Первая строка\nВторая строка', 'TRUE', 'FALSE', '', 'Стулья', '', 'Короткая форма, Угадайки'];
+const row = ['2-komnaty', '2 комнаты', 'Первая строка\nВторая строка', 'TRUE', 'FALSE', '', 'Стулья', '', 'Короткая форма', 'Угадайки', 'JAM, Иностранные'];
 
 describe('Apps Script format validation', () => {
+  it('keeps empty and multiple classifications independent, deduplicating within each column', () => {
+    const classified = [...row.slice(0, 8), 'Короткая форма, Длинная форма', 'JAM', 'JAM, Иностранные, JAM'];
+    expect(fromRows([headers, classified]).records[0]).toMatchObject({
+      forms: ['Короткая форма', 'Длинная форма'], features: ['JAM'], collections: ['JAM', 'Иностранные'],
+    });
+    expect(fromRows([headers, [...row.slice(0, 8), '', '', 'JAM']]).records[0]).toMatchObject({ forms: [], features: [], collections: ['JAM'] });
+  });
   it('preserves all public fields needed by the site', () => {
     const flag = (value: boolean | null) => value === null ? '' : String(value).toUpperCase();
-    const rows = snapshot.records.map((record) => [
+    const records = parseFormatsJson(snapshot);
+    const rows = records.map((record) => [
       record.id, record.title, record.description,
       flag(record.moderator), flag(record.audienceOnStage), flag(record.props),
-      record.furniture, record.note, record.tags.join(', '),
+      record.furniture, record.note, record.forms.join(', '), record.features.join(', '), record.collections.join(', '),
     ]);
     const catalog = fromRows([headers, ...rows]);
 
-    expect(catalog.records).toEqual(snapshot.records);
-    expect(parseFormatsJson(catalog)).toHaveLength(snapshot.records.length);
+    expect(parseFormatsJson(catalog)).toEqual(records);
   });
 
   it('preserves unknown flags and multiline text, and excludes extra columns', () => {
-    const catalog = fromRows([headers, [...row, 'Служебные данные'], Array(9).fill('')]);
+    const catalog = fromRows([headers, [...row, 'Служебные данные'], Array(11).fill('')]);
 
     expect(catalog.records).toHaveLength(1);
     expect(catalog.records[0]).toMatchObject({
       id: '2-komnaty', moderator: true, audienceOnStage: false, props: null,
-      description: 'Первая строка\nВторая строка', tags: ['Короткая форма', 'Угадайки'],
+      description: 'Первая строка\nВторая строка', forms: ['Короткая форма'], features: ['Угадайки'], collections: ['JAM', 'Иностранные'],
     });
     expect(JSON.stringify(catalog)).not.toContain('Служебные данные');
   });
@@ -71,7 +78,7 @@ describe('Apps Script format validation', () => {
   });
 
   it('rejects an empty catalog', () => {
-    expect(() => fromRows([headers, Array(9).fill('')])).toThrow('нет форматов');
+    expect(() => fromRows([headers, Array(11).fill('')])).toThrow('нет форматов');
   });
 });
 
@@ -151,7 +158,7 @@ describe('Apps Script Publish', () => {
 
     draft.pop();
     expect(state.run()).toBe(1);
-    expect(state.values()[2]).toEqual(Array(9).fill(''));
+    expect(state.values()[2]).toEqual(Array(11).fill(''));
     expect(fromRows(state.values()).records).toHaveLength(1);
   });
 

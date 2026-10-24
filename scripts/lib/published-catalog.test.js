@@ -34,6 +34,21 @@ afterEach(async () => {
 });
 
 describe('published catalog validation', () => {
+  it('imports separate A–K classifications as schema v3 and excludes videos', () => {
+    const currentHeaders = [...headers.slice(0, 8), 'Форма', 'Особенности', 'Подборки', 'Видео'];
+    const currentRow = [...row.slice(0, 8), 'Короткая форма, Длинная форма', 'Музыкальные', 'JAM, Иностранные, JAM', 'private-video'];
+    const catalog = parsePublishedRows([currentHeaders, currentRow]);
+    expect(catalog.schemaVersion).toBe(3);
+    expect(catalog.records[0]).toMatchObject({ forms: ['Короткая форма', 'Длинная форма'], features: ['Музыкальные'], collections: ['JAM', 'Иностранные'] });
+    expect(catalog.records[0]).not.toHaveProperty('tags');
+    expect(JSON.stringify(catalog)).not.toContain('private-video');
+    expect(parseFormatsJson(catalog)[0].collections).toEqual(['JAM', 'Иностранные']);
+  });
+
+  it('preserves blank form and feature cells as empty lists', () => {
+    const catalog = parsePublishedRows([[...headers.slice(0, 8), 'Форма', 'Особенности', 'Подборки'], [...row.slice(0, 8), '', '', 'JAM']]);
+    expect(catalog.records[0]).toMatchObject({ forms: [], features: [], collections: ['JAM'] });
+  });
   it('creates exactly the public schema consumed by the site for all snapshot records', () => {
     const flag = value => value === null ? '' : String(value).toUpperCase();
     const rows = snapshot.records.map(record => [
@@ -83,7 +98,7 @@ describe('Google credentials and published sheet access', () => {
       scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
     });
     expect(request).toHaveBeenCalledWith(expect.objectContaining({
-      url: 'https://sheets.googleapis.com/v4/spreadsheets/sheet-id/values/' + encodeURIComponent("'Опубликовано'!A1:I"),
+      url: 'https://sheets.googleapis.com/v4/spreadsheets/sheet-id/values/' + encodeURIComponent("'Опубликовано'!A1:K"),
       method: 'GET', params: { valueRenderOption: 'FORMATTED_VALUE' },
     }));
     expect(JSON.stringify(catalog)).not.toContain(credentials.private_key);

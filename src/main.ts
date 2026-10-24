@@ -1,8 +1,7 @@
 import './styles.css';
 import { inject } from '@vercel/analytics';
-import { FEATURE_TAGS, FORM_TAGS } from './config';
 import { fetchFormats, readCache, writeCache } from './data';
-import { countActiveFilters, DEFAULT_FILTERS, filterFormats } from './filters';
+import { classificationOptions, countActiveFilters, DEFAULT_FILTERS, filterFormats } from './filters';
 import type { FilterState, FormatRecord, FurnitureFilter, OptionalBoolean, TriState } from './types';
 import { readFiltersFromUrl, writeFiltersToUrl } from './url-state';
 
@@ -27,6 +26,7 @@ const detailResizeHandle = element<HTMLElement>('#detailResizeHandle');
 const activeFiltersCount = element<HTMLElement>('#activeFiltersCount');
 const formFilters = element<HTMLElement>('#formFilters');
 const featureFilters = element<HTMLElement>('#featureFilters');
+const collectionFilters = element<HTMLElement>('#collectionFilters');
 const moderatorFilter = element<HTMLSelectElement>('#moderatorFilter');
 const audienceFilter = element<HTMLSelectElement>('#audienceFilter');
 const propsFilter = element<HTMLSelectElement>('#propsFilter');
@@ -226,11 +226,11 @@ function syncUrl(mode: 'replace' | 'push' = 'replace'): void {
   window.history[mode === 'push' ? 'pushState' : 'replaceState']({}, '', url);
 }
 
-function createTapeButton(tag: string, selected: boolean, onClick: () => void): HTMLButtonElement {
+function createTapeButton(tag: string, selected: boolean, onClick: () => void, key: string): HTMLButtonElement {
   const button = document.createElement('button');
   button.type = 'button';
   button.className = 'tape-filter';
-  button.dataset.filterKey = tag;
+  button.dataset.filterKey = key;
   button.setAttribute('aria-pressed', String(selected));
   button.addEventListener('click', onClick);
 
@@ -245,18 +245,18 @@ function renderFilterButtons(): void {
     filters.selectedId = null;
     syncUrl();
     render();
-  }));
-  FORM_TAGS.forEach((tag) => {
+  }, 'all-forms'));
+  classificationOptions(records, 'forms', filters.formTag ? [filters.formTag] : []).forEach((tag) => {
     formFilters.append(createTapeButton(tag, filters.formTag === tag, () => {
       filters.formTag = filters.formTag === tag ? null : tag;
       filters.selectedId = null;
       syncUrl();
       render();
-    }));
+    }, `form:${tag}`));
   });
 
   featureFilters.replaceChildren();
-  FEATURE_TAGS.forEach((tag) => {
+  classificationOptions(records, 'features', filters.featureTags).forEach((tag) => {
     featureFilters.append(createTapeButton(tag, filters.featureTags.includes(tag), () => {
       filters.featureTags = filters.featureTags.includes(tag)
         ? filters.featureTags.filter((value) => value !== tag)
@@ -264,7 +264,19 @@ function renderFilterButtons(): void {
       filters.selectedId = null;
       syncUrl();
       render();
-    }));
+    }, `feature:${tag}`));
+  });
+
+  collectionFilters.replaceChildren();
+  classificationOptions(records, 'collections', filters.collectionTags).forEach((tag) => {
+    collectionFilters.append(createTapeButton(tag, filters.collectionTags.includes(tag), () => {
+      filters.collectionTags = filters.collectionTags.includes(tag)
+        ? filters.collectionTags.filter((value) => value !== tag)
+        : [...filters.collectionTags, tag];
+      filters.selectedId = null;
+      syncUrl();
+      render();
+    }, `collection:${tag}`));
   });
 }
 
@@ -282,6 +294,7 @@ function syncControls(): void {
   resetFilters.hidden = activeCount === 0;
   resetFiltersTop.hidden = activeCount === 0;
   element('#featuresCount').textContent = filters.featureTags.length ? `· ${filters.featureTags.length}` : '';
+  element('#collectionsCount').textContent = filters.collectionTags.length ? `· ${filters.collectionTags.length}` : '';
   const conditionsCount = [filters.moderator, filters.audience, filters.props, filters.furniture].filter((value) => value !== 'any').length;
   element('#conditionsCount').textContent = conditionsCount ? `· ${conditionsCount}` : '';
 }
@@ -300,7 +313,9 @@ function renderSelectedFilters(): void {
         ? 'form'
         : key.startsWith('feature:')
           ? 'feature'
-          : 'condition';
+          : key.startsWith('collection:')
+            ? 'collection'
+            : 'condition';
     button.textContent = `${label} ×`;
     button.setAttribute('aria-label', `Убрать фильтр: ${label}`);
     button.addEventListener('click', () => {
@@ -316,6 +331,9 @@ function renderSelectedFilters(): void {
   if (filters.formTag) add(filters.formTag, 'form', () => { filters.formTag = null; });
   filters.featureTags.forEach((tag) => add(tag, `feature:${tag}`, () => {
     filters.featureTags = filters.featureTags.filter((value) => value !== tag);
+  }));
+  filters.collectionTags.forEach((tag) => add(`Подборка: ${tag}`, `collection:${tag}`, () => {
+    filters.collectionTags = filters.collectionTags.filter((value) => value !== tag);
   }));
   const conditions = [
     ['moderator', 'С модератором', 'Без модератора'],
@@ -374,7 +392,7 @@ function createFormatRow(record: FormatRecord): HTMLButtonElement {
 
   const metadata = document.createElement('span');
   metadata.className = 'format-row__metadata';
-  const visibleTags = record.tags.slice(0, 2);
+  const visibleTags = [...record.forms, ...record.features, ...record.collections].slice(0, 2);
   visibleTags.forEach((tag) => appendTag(metadata, tag));
   const conditions = briefConditions(record);
   if (conditions.length > 0) {
@@ -430,7 +448,8 @@ function renderDetail(): void {
   detailTitle.textContent = record.title;
   detailDescription.textContent = record.description || 'Описание пока не добавлено.';
   detailTags.replaceChildren();
-  record.tags.forEach((tag) => appendTag(detailTags, tag));
+  [...record.forms, ...record.features].forEach((tag) => appendTag(detailTags, tag));
+  record.collections.forEach((tag) => appendTag(detailTags, `Подборка: ${tag}`));
 
   detailRequirements.replaceChildren();
   addRequirement('Модератор', booleanLabel(record.moderator, 'Нужен', 'Не нужен'), record.moderator === null);
@@ -507,7 +526,7 @@ function closeSelectedFormat(): void {
 }
 
 function resetAll(): void {
-  filters = { ...DEFAULT_FILTERS, featureTags: [] };
+  filters = { ...DEFAULT_FILTERS, featureTags: [], collectionTags: [] };
   syncUrl();
   render();
   searchInput.focus();

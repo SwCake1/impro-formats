@@ -9,7 +9,9 @@ const CATALOG_HEADERS = [
   'Наличие реквизита',
   'Наличие мебели',
   'Дополнительно',
-  'Тип формата (тег)',
+  'Форма',
+  'Особенности',
+  'Подборки',
 ];
 
 function onOpen() {
@@ -69,7 +71,8 @@ function snapshotRows_(records) {
   return [CATALOG_HEADERS.slice(), ...records.map((record) => [
     record.id, record.title, record.description,
     flag(record.moderator), flag(record.audienceOnStage), flag(record.props),
-    record.furniture, record.note, record.tags.join(', '),
+    record.furniture, record.note,
+    record.forms.join(', '), record.features.join(', '), record.collections.join(', '),
   ])];
 }
 
@@ -86,7 +89,7 @@ function readFormats_() {
 function parseFormatRows_(rows) {
   const headers = rows[0] || [];
   if (!CATALOG_HEADERS.every((header, index) => String(headers[index] || '').trim() === header)) {
-    throw new Error('Изменились заголовки или порядок колонок A–I.');
+    throw new Error('Изменились заголовки или порядок колонок A–K.');
   }
 
   const seenIds = new Set();
@@ -96,7 +99,7 @@ function parseFormatRows_(rows) {
     if (cells.every((cell) => cell === '')) return;
 
     const rowNumber = index + 2;
-    const [id, title, description, moderator, audience, props, furniture, note, tags] = cells;
+    const [id, title, description, moderator, audience, props, furniture, note, forms, features, collections] = cells;
     if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id)) {
       throw new Error('Строка ' + rowNumber + ': отсутствует или некорректен id.');
     }
@@ -113,12 +116,18 @@ function parseFormatRows_(rows) {
       props: parseCatalogFlag_(props, rowNumber, 'реквизит'),
       furniture,
       note,
-      tags: tags.split(',').map((tag) => tag.trim()).filter(Boolean),
+      forms: parseCatalogList_(forms),
+      features: parseCatalogList_(features),
+      collections: parseCatalogList_(collections),
     });
   });
 
   if (records.length === 0) throw new Error('В таблице нет форматов.');
   return records;
+}
+
+function parseCatalogList_(value) {
+  return [...new Set(value.split(',').map((item) => item.trim()).filter(Boolean))];
 }
 
 function parseCatalogFlag_(value, rowNumber, field) {

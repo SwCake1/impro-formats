@@ -22,7 +22,7 @@ const catalog = (records: unknown = [rawRecord]) => ({
 });
 
 const cachedCatalog = (etag: string | null = '"catalog-v1"') => ({
-  schemaVersion: 2 as const,
+  schemaVersion: 3 as const,
   fetchedAt: '2026-10-24T10:00:00.000Z',
   etag,
   records: parseFormatsJson(catalog()),
@@ -34,6 +34,40 @@ afterEach(() => {
 });
 
 describe('parseFormatsJson', () => {
+  it('keeps the three classifications independent in schema v3', () => {
+    const { tags: _tags, ...base } = rawRecord;
+    const [record] = parseFormatsJson({ ...catalog(), schemaVersion: 3, records: [{
+      ...base, forms: ['Короткая форма', 'Длинная форма'],
+      features: ['JAM'], collections: ['Музыкальные', 'JAM', 'JAM', ' '],
+    }] });
+    expect(record.forms).toEqual(['Короткая форма', 'Длинная форма']);
+    expect(record.features).toEqual(['JAM']);
+    expect(record.collections).toEqual(['Музыкальные', 'JAM']);
+  });
+
+  it('accepts empty classification cells without inventing a form', () => {
+    const [record] = parseFormatsJson({ ...catalog(), schemaVersion: 3, records: [{
+      ...rawRecord, forms: [], features: [], collections: ['JAM'],
+    }] });
+    expect(record.forms).toEqual([]);
+    expect(record.features).toEqual([]);
+    expect(record.collections).toEqual(['JAM']);
+  });
+
+  it.each(['forms', 'features', 'collections'])('rejects malformed v3 classification: %s', (field) => {
+    expect(() => parseFormatsJson({ ...catalog(), schemaVersion: 3, records: [{
+      ...rawRecord, forms: [], features: [], collections: [], [field]: 'JAM',
+    }] })).toThrow(CatalogFormatError);
+  });
+
+  it('moves legacy collections out of form and feature groups', () => {
+    const [record] = parseFormatsJson(catalog([{ ...rawRecord,
+      tags: ['Короткая форма', 'JAM', 'Импровизация.Команды', 'Иностранные', 'Музыкальные'],
+    }]));
+    expect(record.forms).toEqual(['Короткая форма']);
+    expect(record.features).toEqual(['Музыкальные']);
+    expect(record.collections).toEqual(['JAM', 'Импровизация.Команды', 'Иностранные']);
+  });
   it('preserves sheet IDs, text, unknown flags and tags, and prepares search and furniture filters', () => {
     const [record] = parseFormatsJson(catalog());
 
@@ -44,7 +78,10 @@ describe('parseFormatsJson', () => {
     expect(record.audienceOnStage).toBe(false);
     expect(record.props).toBeNull();
     expect(record.furnitureKinds).toEqual(['chairs', 'tables']);
-    expect(record.tags).toEqual(['Короткая форма', 'Музыкальные']);
+    expect(record.forms).toEqual(['Короткая форма']);
+    expect(record.features).toEqual(['Музыкальные']);
+    expect(record.collections).toEqual([]);
+    expect(record).not.toHaveProperty('tags');
     expect(record.searchText).toContain('заметка, важная');
   });
 
@@ -202,10 +239,26 @@ describe('cache', () => {
 
   it('accepts an existing v2 cache without an ETag', () => {
     const target = storage();
-    const { etag: _etag, ...oldCache } = cachedCatalog();
+    const oldCache = { schemaVersion: 2, fetchedAt: cachedCatalog().fetchedAt, records: [rawRecord] };
     target.setItem('impro-formats:data:v2', JSON.stringify(oldCache));
-    expect(readCache(target)?.records).toEqual(oldCache.records);
+    expect(readCache(target)?.records).toEqual(parseFormatsJson(catalog()));
+    expect(readCache(target)?.schemaVersion).toBe(3);
     expect(readCache(target)?.etag).toBeNull();
+  });
+
+  it('migrates a v2 cache with its ETag and persists independent classifications in v3', () => {
+    const target = storage();
+    target.setItem('impro-formats:data:v2', JSON.stringify({
+      schemaVersion: 2, fetchedAt: cachedCatalog().fetchedAt, etag: '"old"',
+      records: [{ ...rawRecord, tags: ['Короткая форма', 'Иностранные'] }],
+    }));
+    const restored = readCache(target)!;
+    expect(restored.etag).toBe('"old"');
+    expect(restored.records[0].collections).toEqual(['Иностранные']);
+    expect(restored.records[0].features).toEqual([]);
+    writeCache(restored, target);
+    expect(JSON.parse(target.getItem('impro-formats:data:v3')!).schemaVersion).toBe(3);
+    expect(readCache(target)).toEqual(restored);
   });
 
   it('handles unavailable storage, including a denied localStorage getter', () => {

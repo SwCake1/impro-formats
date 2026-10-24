@@ -1,7 +1,7 @@
-import { DATA_URL } from './config';
+import { DATA_URL, LEGACY_FORM_TAGS, LEGACY_COLLECTION_TAGS } from './config';
 import type { CachedFormats, FormatRecord, OptionalBoolean } from './types';
 
-const CACHE_KEY = 'impro-formats:data:v2';
+const CACHE_KEY = 'impro-formats:data:v3';
 
 export class CatalogFormatError extends Error {
   constructor(message: string) {
@@ -26,7 +26,7 @@ function object(value: unknown): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
-function parseRecords(value: unknown): FormatRecord[] {
+function parseRecords(value: unknown, legacy = false): FormatRecord[] {
   if (!Array.isArray(value) || value.length === 0) {
     throw new CatalogFormatError('В каталоге не найдено ни одного формата.');
   }
@@ -56,9 +56,16 @@ function parseRecords(value: unknown): FormatRecord[] {
 
     const title = text('title');
     if (!title) throw new CatalogFormatError('У формата должно быть название.');
-    if (!Array.isArray(row.tags) || !row.tags.every((tag) => typeof tag === 'string')) {
-      throw new CatalogFormatError('Некорректные теги формата.');
-    }
+    const list = (key: string): string[] => {
+      const values = row[key];
+      if (!Array.isArray(values) || !values.every((item) => typeof item === 'string')) {
+        throw new CatalogFormatError('Некорректное поле ' + key + '.');
+      }
+      return [...new Set(values.map((item) => item.trim()).filter(Boolean))];
+    };
+    const tags = legacy ? list('tags') : [];
+    const isForm = (tag: string) => (LEGACY_FORM_TAGS as readonly string[]).includes(tag);
+    const isCollection = (tag: string) => (LEGACY_COLLECTION_TAGS as readonly string[]).includes(tag);
 
     const description = text('description');
     const note = text('note');
@@ -78,7 +85,9 @@ function parseRecords(value: unknown): FormatRecord[] {
       furniture,
       furnitureKinds,
       note,
-      tags: row.tags.map((tag) => tag.trim()).filter(Boolean),
+      forms: legacy ? tags.filter(isForm) : list('forms'),
+      features: legacy ? tags.filter((tag) => !isForm(tag) && !isCollection(tag)) : list('features'),
+      collections: legacy ? tags.filter(isCollection) : list('collections'),
       searchText: normalizeText([title, description, note].join(' ')),
     };
   });
@@ -90,10 +99,10 @@ function isTimestamp(value: unknown): value is string {
 
 export function parseFormatsJson(value: unknown): FormatRecord[] {
   const catalog = object(value);
-  if (catalog.schemaVersion !== 2 || !isTimestamp(catalog.generatedAt)) {
+  if (![2, 3].includes(catalog.schemaVersion as number) || !isTimestamp(catalog.generatedAt)) {
     throw new CatalogFormatError('Некорректная версия или дата каталога.');
   }
-  return parseRecords(catalog.records);
+  return parseRecords(catalog.records, catalog.schemaVersion === 2);
 }
 
 export async function fetchFormats(
@@ -106,7 +115,7 @@ export async function fetchFormats(
   const etag = response.headers.get('ETag') || null;
   if (cached && etag && cached.etag === etag) return cached;
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     fetchedAt: new Date().toISOString(),
     etag,
     records: parseFormatsJson(await response.json()),
@@ -115,15 +124,16 @@ export async function fetchFormats(
 
 export function readCache(storage?: Pick<Storage, 'getItem'>): CachedFormats | null {
   try {
-    const raw = (storage ?? localStorage).getItem(CACHE_KEY);
+    const target = storage ?? localStorage;
+    const raw = target.getItem(CACHE_KEY) ?? target.getItem('impro-formats:data:v2');
     if (!raw) return null;
     const parsed = object(JSON.parse(raw));
-    if (parsed.schemaVersion !== 2 || !isTimestamp(parsed.fetchedAt)) return null;
+    if (![2, 3].includes(parsed.schemaVersion as number) || !isTimestamp(parsed.fetchedAt)) return null;
     return {
-      schemaVersion: 2,
+      schemaVersion: 3,
       fetchedAt: parsed.fetchedAt,
       etag: typeof parsed.etag === 'string' ? parsed.etag : null,
-      records: parseRecords(parsed.records),
+      records: parseRecords(parsed.records, parsed.schemaVersion === 2),
     };
   } catch {
     return null;
