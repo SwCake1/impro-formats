@@ -11,7 +11,7 @@ describe('URL state', () => {
       audience: 'any',
       props: 'yes',
       furniture: 'chairs',
-      selectedId: 'тест-abc',
+      selectedId: '2-komnaty',
     }, new URL('https://example.test/catalog?unused=1'));
 
     expect(readFiltersFromUrl(url)).toEqual({
@@ -22,7 +22,7 @@ describe('URL state', () => {
       audience: 'any',
       props: 'yes',
       furniture: 'chairs',
-      selectedId: 'тест-abc',
+      selectedId: '2-komnaty',
     });
     expect(url.searchParams.has('unused')).toBe(false);
   });

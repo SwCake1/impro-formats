@@ -83,8 +83,7 @@ select:focus-visible,
 }
 
 .brand,
-.project-link,
-.source-link {
+.project-link {
   display: inline-flex;
   gap: 11px;
   align-items: center;
@@ -118,13 +117,6 @@ select:focus-visible,
   color: var(--accent-strong);
 }
 
-.source-link {
-  color: var(--accent-strong);
-  font-size: 12px;
-  white-space: nowrap;
-}
-
-.source-link:hover,
 .footer a:hover {
   text-decoration-thickness: 1px;
   text-underline-offset: 4px;

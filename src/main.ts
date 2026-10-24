@@ -1,5 +1,5 @@
 import './styles.css';
-import { FEATURE_TAGS, FORM_TAGS, SHEET_ID, SHEET_URL } from './config';
+import { FEATURE_TAGS, FORM_TAGS } from './config';
 import { fetchFormats, readCache, writeCache } from './data';
 import { countActiveFilters, DEFAULT_FILTERS, filterFormats } from './filters';
 import type { FilterState, FormatRecord, FurnitureFilter, OptionalBoolean, TriState } from './types';
@@ -47,7 +47,6 @@ const detailNoteSection = element<HTMLElement>('#detailNoteSection');
 const detailNote = element<HTMLElement>('#detailNote');
 const closeDetail = element<HTMLButtonElement>('#closeDetail');
 const copyLink = element<HTMLButtonElement>('#copyLink');
-const sourceRowLink = element<HTMLAnchorElement>('#sourceRowLink');
 const toast = element<HTMLElement>('#toast');
 
 const mobileQuery = window.matchMedia('(max-width: 1220px)');
@@ -402,11 +401,7 @@ function addRequirement(term: string, value: string, unknown = false): void {
 }
 
 function findRecordById(id: string | null): FormatRecord | undefined {
-  if (!id) return undefined;
-  const exact = records.find((record) => record.id === id);
-  if (exact) return exact;
-  const requestedSlug = id.replace(/-[a-z0-9]+(?:-r\d+)?$/i, '');
-  return records.find((record) => record.id.replace(/-[a-z0-9]+(?:-r\d+)?$/i, '') === requestedSlug);
+  return records.find((record) => record.id === id);
 }
 
 function renderDetail(): void {
@@ -440,7 +435,6 @@ function renderDetail(): void {
 
   detailNoteSection.hidden = !record.note;
   detailNote.textContent = record.note;
-  sourceRowLink.href = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit?gid=0&range=A${record.sourceRow}:H${record.sourceRow}`;
 
   detailPanel.classList.add('is-open');
   detailPanel.setAttribute('aria-hidden', 'false');
@@ -691,6 +685,3 @@ initializePanelResize();
 render();
 syncDetailMode();
 void loadFreshData();
-
-// Keep the canonical source available for browser extensions and diagnostics.
-document.documentElement.dataset.source = SHEET_URL;

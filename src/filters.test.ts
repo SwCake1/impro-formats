@@ -1,13 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { parseFormatsCsv, EXPECTED_HEADERS } from './data';
+import { parseFormatsJson } from './data';
 import { DEFAULT_FILTERS, filterFormats } from './filters';
 import type { FilterState } from './types';
 
-const header = EXPECTED_HEADERS.map((value) => `"${value}"`).join(',');
-const records = parseFormatsCsv(`${header}
-Ёлка,"Музыкальная сцена",FALSE,FALSE,FALSE,Нет,,"Короткая форма, Музыкальные"
-Стол,"Угадай историю",TRUE,TRUE,TRUE,"Столы, Стулья",Принести таймер,"Короткая форма, Угадайки"
-Армандо,Монологи,FALSE,FALSE,,Нет,,Длинная форма`);
+const records = parseFormatsJson({
+  schemaVersion: 2,
+  generatedAt: '2026-10-24T10:00:00.000Z',
+  records: [
+    { id: 'elka', title: 'Ёлка', description: 'Музыкальная сцена', moderator: false, audienceOnStage: false, props: false, furniture: 'Нет', note: '', tags: ['Короткая форма', 'Музыкальные'] },
+    { id: 'stol', title: 'Стол', description: 'Угадай историю', moderator: true, audienceOnStage: true, props: true, furniture: 'Столы, Стулья', note: 'Принести таймер', tags: ['Короткая форма', 'Угадайки'] },
+    { id: 'armando', title: 'Армандо', description: 'Монологи', moderator: false, audienceOnStage: false, props: null, furniture: 'Нет', note: '', tags: ['Длинная форма'] },
+  ],
+});
 
 function withFilters(patch: Partial<FilterState>): FilterState {
   return { ...DEFAULT_FILTERS, featureTags: [], ...patch };

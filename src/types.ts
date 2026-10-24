@@ -4,7 +4,6 @@ export type FurnitureFilter = 'any' | 'none' | 'chairs' | 'tables';
 
 export interface FormatRecord {
   id: string;
-  sourceRow: number;
   title: string;
   description: string;
   moderator: OptionalBoolean;
@@ -29,7 +28,7 @@ export interface FilterState {
 }
 
 export interface CachedFormats {
-  schemaVersion: 1;
+  schemaVersion: 2;
   fetchedAt: string;
   records: FormatRecord[];
 }

@@ -1,24 +1,12 @@
-import Papa from 'papaparse';
 import { DATA_URL } from './config';
 import type { CachedFormats, FormatRecord, OptionalBoolean } from './types';
 
-export const EXPECTED_HEADERS = [
-  'Название формата',
-  'Описание формата',
-  'Наличие модератора',
-  'Наличие зрителя на сцене',
-  'Наличие реквизита',
-  'Наличие мебели',
-  'Дополнительно',
-  'Тип формата (тег)',
-] as const;
+const CACHE_KEY = 'impro-formats:data:v2';
 
-const CACHE_KEY = 'impro-formats:data:v1';
-
-export class SheetFormatError extends Error {
+export class CatalogFormatError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = 'SheetFormatError';
+    this.name = 'CatalogFormatError';
   }
 }
 
@@ -31,119 +19,96 @@ export function normalizeText(value: string): string {
     .trim();
 }
 
-function parseBoolean(value: string): OptionalBoolean {
-  const normalized = normalizeText(value);
-  if (normalized === 'true' || normalized === 'да') return true;
-  if (normalized === 'false' || normalized === 'нет') return false;
-  return null;
-}
-
-function parseFurnitureKinds(value: string): Array<'chairs' | 'tables'> {
-  const normalized = normalizeText(value);
-  const kinds: Array<'chairs' | 'tables'> = [];
-  if (normalized.includes('стул')) kinds.push('chairs');
-  if (normalized.includes('стол')) kinds.push('tables');
-  return kinds;
-}
-
-function slugify(value: string): string {
-  return normalizeText(value)
-    .replace(/[^\p{L}\p{N}]+/gu, '-')
-    .replace(/^-|-$/g, '')
-    .slice(0, 64) || 'format';
-}
-
-function fnv1a(value: string): string {
-  let hash = 0x811c9dc5;
-  for (let index = 0; index < value.length; index += 1) {
-    hash ^= value.charCodeAt(index);
-    hash = Math.imul(hash, 0x01000193);
+function object(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new CatalogFormatError('Некорректная структура каталога.');
   }
-  return (hash >>> 0).toString(36);
+  return value as Record<string, unknown>;
 }
 
-function buildRecord(row: string[], sourceRow: number): FormatRecord | null {
-  const [title = '', description = '', moderator = '', audience = '', props = '', furniture = '', note = '', tags = ''] = row;
-  const cleanTitle = title.trim();
-  if (!cleanTitle) return null;
-
-  const cleanDescription = description.trim();
-  const cleanNote = note.trim();
-  const parsedTags = tags.split(',').map((tag) => tag.trim()).filter(Boolean);
-
-  return {
-    id: `${slugify(cleanTitle)}-${fnv1a(`${normalizeText(cleanTitle)}\u0000${normalizeText(cleanDescription)}`)}`,
-    sourceRow,
-    title: cleanTitle,
-    description: cleanDescription,
-    moderator: parseBoolean(moderator),
-    audienceOnStage: parseBoolean(audience),
-    props: parseBoolean(props),
-    furniture: furniture.trim(),
-    furnitureKinds: parseFurnitureKinds(furniture),
-    note: cleanNote,
-    tags: parsedTags,
-    searchText: normalizeText([cleanTitle, cleanDescription, cleanNote].join(' ')),
-  };
-}
-
-export function parseFormatsCsv(csv: string): FormatRecord[] {
-  const parsed = Papa.parse<string[]>(csv, {
-    skipEmptyLines: 'greedy',
-  });
-
-  if (parsed.errors.length > 0) {
-    throw new SheetFormatError(`Не удалось прочитать CSV: ${parsed.errors[0]?.message ?? 'неизвестная ошибка'}`);
-  }
-
-  const rows = parsed.data;
-  const headers = rows[0]?.slice(0, EXPECTED_HEADERS.length).map((header) => header.trim()) ?? [];
-  const headersMatch = EXPECTED_HEADERS.every((header, index) => headers[index] === header);
-  if (!headersMatch) {
-    throw new SheetFormatError('Структура таблицы изменилась: ожидаются колонки A–H с прежними заголовками.');
+function parseRecords(value: unknown): FormatRecord[] {
+  if (!Array.isArray(value) || value.length === 0) {
+    throw new CatalogFormatError('В каталоге не найдено ни одного формата.');
   }
 
   const seenIds = new Set<string>();
-  const records = rows.slice(1).flatMap((row, index) => {
-    const record = buildRecord(row, index + 2);
-    if (!record) return [];
+  return value.map((value) => {
+    const row = object(value);
+    const text = (key: string): string => {
+      const value = row[key];
+      if (typeof value !== 'string') throw new CatalogFormatError('Некорректное поле ' + key + '.');
+      return value.trim();
+    };
+    const flag = (key: string): OptionalBoolean => {
+      const value = row[key];
+      if (value !== null && typeof value !== 'boolean') {
+        throw new CatalogFormatError('Некорректный признак ' + key + '.');
+      }
+      return value;
+    };
 
-    if (seenIds.has(record.id)) {
-      record.id = `${record.id}-r${record.sourceRow}`;
+    const id = text('id');
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id)) {
+      throw new CatalogFormatError('id должен содержать строчные латинские буквы, цифры и дефисы.');
     }
-    seenIds.add(record.id);
-    return [record];
+    if (seenIds.has(id)) throw new CatalogFormatError('Повторяющийся id формата: ' + id + '.');
+    seenIds.add(id);
+
+    const title = text('title');
+    if (!title) throw new CatalogFormatError('У формата должно быть название.');
+    if (!Array.isArray(row.tags) || !row.tags.every((tag) => typeof tag === 'string')) {
+      throw new CatalogFormatError('Некорректные теги формата.');
+    }
+
+    const description = text('description');
+    const note = text('note');
+    const furniture = text('furniture');
+    const normalizedFurniture = normalizeText(furniture);
+    const furnitureKinds: FormatRecord['furnitureKinds'] = [];
+    if (normalizedFurniture.includes('стул')) furnitureKinds.push('chairs');
+    if (normalizedFurniture.includes('стол')) furnitureKinds.push('tables');
+
+    return {
+      id,
+      title,
+      description,
+      moderator: flag('moderator'),
+      audienceOnStage: flag('audienceOnStage'),
+      props: flag('props'),
+      furniture,
+      furnitureKinds,
+      note,
+      tags: row.tags.map((tag) => tag.trim()).filter(Boolean),
+      searchText: normalizeText([title, description, note].join(' ')),
+    };
   });
+}
 
-  if (records.length === 0) {
-    throw new SheetFormatError('В таблице не найдено ни одного формата.');
+function isTimestamp(value: unknown): value is string {
+  return typeof value === 'string' && Number.isFinite(Date.parse(value));
+}
+
+export function parseFormatsJson(value: unknown): FormatRecord[] {
+  const catalog = object(value);
+  if (catalog.schemaVersion !== 2 || !isTimestamp(catalog.generatedAt)) {
+    throw new CatalogFormatError('Некорректная версия или дата каталога.');
   }
-
-  return records;
+  return parseRecords(catalog.records);
 }
 
 export async function fetchFormats(signal?: AbortSignal): Promise<FormatRecord[]> {
-  const response = await fetch(DATA_URL, {
-    cache: 'no-store',
-    signal,
-  });
-
-  if (!response.ok) {
-    throw new Error(`Google Sheets вернул ошибку ${response.status}.`);
-  }
-
-  return parseFormatsCsv(await response.text());
+  const response = await fetch(DATA_URL, { cache: 'no-store', signal });
+  if (!response.ok) throw new Error('Не удалось загрузить каталог (HTTP ' + response.status + ').');
+  return parseFormatsJson(await response.json());
 }
 
 export function readCache(storage: Pick<Storage, 'getItem'> = localStorage): CachedFormats | null {
   try {
     const raw = storage.getItem(CACHE_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<CachedFormats>;
-    if (parsed.schemaVersion !== 1 || !parsed.fetchedAt || !Array.isArray(parsed.records) || parsed.records.length === 0) {
-      return null;
-    }
-    return parsed as CachedFormats;
+    const parsed = object(JSON.parse(raw));
+    if (parsed.schemaVersion !== 2 || !isTimestamp(parsed.fetchedAt)) return null;
+    return { schemaVersion: 2, fetchedAt: parsed.fetchedAt, records: parseRecords(parsed.records) };
   } catch {
     return null;
   }
@@ -154,7 +119,7 @@ export function writeCache(
   fetchedAt = new Date().toISOString(),
   storage: Pick<Storage, 'setItem'> = localStorage,
 ): CachedFormats | null {
-  const payload: CachedFormats = { schemaVersion: 1, fetchedAt, records };
+  const payload: CachedFormats = { schemaVersion: 2, fetchedAt, records };
   try {
     storage.setItem(CACHE_KEY, JSON.stringify(payload));
     return payload;
