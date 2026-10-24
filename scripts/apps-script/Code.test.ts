@@ -83,17 +83,28 @@ describe('Apps Script format validation', () => {
 });
 
 describe('Apps Script Publish', () => {
-  function environment(draft: string[][], initialPublished?: string[][]) {
+  const hookUrl = 'https://api.vercel.com/v1/integrations/deploy/prj_test/test-hook';
+  function environment(draft: string[][], initialPublished?: string[][], configuredHook = hookUrl) {
     let published = initialPublished?.map((row) => [...row]) ?? [];
     let exists = initialPublished !== undefined;
     let maxRows = Math.max(1, published.length);
     let maxColumns = 1;
     let failWrite = false;
+    let deployStatus = 200;
+    let deployError: Error | null = null;
+    const events: string[] = [];
     const lock = { waitLock: vi.fn(), releaseLock: vi.fn() };
     const write = vi.fn((values: Array<Array<{ text: string }>>) => {
       if (failWrite) throw new Error('Ошибка записи');
+      events.push('write');
       published = values.map((row) => row.map((cell) => cell.text));
     });
+    const deploy = vi.fn(() => {
+      events.push('deploy');
+      if (deployError) throw deployError;
+      return { getResponseCode: () => deployStatus };
+    });
+    const getProperty = vi.fn(() => configuredHook);
     const target = {
       getLastRow: () => published.findLastIndex((row) => row.some((cell) => cell !== '')) + 1,
       getMaxRows: () => maxRows,
@@ -118,8 +129,10 @@ describe('Apps Script Publish', () => {
         newRichTextValue: () => ({
           setText: (text: string) => ({ build: () => ({ text }) }),
         }),
-        flush: vi.fn(),
+        flush: vi.fn(() => events.push('flush')),
       },
+      PropertiesService: { getScriptProperties: () => ({ getProperty }) },
+      UrlFetchApp: { fetch: deploy },
       LockService: { getDocumentLock: () => lock },
       console: { log: vi.fn() },
     };
@@ -127,7 +140,9 @@ describe('Apps Script Publish', () => {
       run: () => new Script(source + '\npublishCatalog();').runInNewContext({ ...context }),
       values: () => published,
       failWrite: () => { failWrite = true; },
-      document, write, lock,
+      rejectDeploy: (status: number) => { deployStatus = status; },
+      failDeploy: () => { deployError = new Error('Request failed: ' + configuredHook); },
+      document, write, lock, deploy, getProperty, events,
     };
   }
 
@@ -146,6 +161,51 @@ describe('Apps Script Publish', () => {
     draftRow[2] = 'Изменённое описание';
     expect(state.values()[1][1]).toBe('2 комнаты');
     expect(state.values()[1][2]).toBe('=A1\nОписание как текст');
+    expect(state.lock.releaseLock).toHaveBeenCalledTimes(1);
+  });
+
+  it('posts the saved snapshot to the configured hook only after flushing Sheets', () => {
+    const state = environment([headers, row]);
+    state.rejectDeploy(201);
+    expect(state.run()).toBe(1);
+    expect(state.events).toEqual(['write', 'flush', 'deploy']);
+    expect(state.getProperty).toHaveBeenCalledWith('VERCEL_DEPLOY_HOOK_URL');
+    expect(state.deploy).toHaveBeenCalledExactlyOnceWith(hookUrl, {
+      method: 'post', muteHttpExceptions: true, followRedirects: false,
+    });
+    expect(state.document.toast).toHaveBeenCalledWith(expect.stringContaining('Запрос на сборку сайта отправлен'), 'Publish', 8);
+  });
+
+  it.each(['', 'https://impro-formats.vercel.app/', 'https://api.vercel.com.evil.test/v1/integrations/deploy/p/t', 'http://api.vercel.com/v1/integrations/deploy/p/t'])
+    ('rejects a missing or incorrect hook before changing the snapshot: %s', (url) => {
+      const approved = [headers, row];
+      const state = environment([headers, [...row.slice(0, 1), 'Новый снимок', ...row.slice(2)]], approved, url);
+      expect(state.run).toThrow('VERCEL_DEPLOY_HOOK_URL');
+      expect(state.values()).toEqual(approved);
+      expect(state.write).not.toHaveBeenCalled();
+      expect(state.deploy).not.toHaveBeenCalled();
+      expect(state.lock.releaseLock).toHaveBeenCalledTimes(1);
+    });
+
+  it.each([302, 403, 429, 500])('keeps the saved snapshot and reports HTTP %s without claiming success', (status) => {
+    const state = environment([headers, row]);
+    state.rejectDeploy(status);
+    expect(state.run).toThrow('HTTP ' + status);
+    expect(state.values()[1]).toEqual(row);
+    expect(state.document.toast).not.toHaveBeenCalled();
+    expect(state.lock.releaseLock).toHaveBeenCalledTimes(1);
+  });
+
+  it('hides the hook URL when a network error occurs after saving the snapshot', () => {
+    const state = environment([headers, row]);
+    state.failDeploy();
+    let message = '';
+    try { state.run(); } catch (error) { message = (error as Error).message; }
+    expect(message).toContain('Снимок сохранён, но запуск сборки не подтверждён');
+    expect(message).not.toContain(hookUrl);
+    expect(state.values()[1]).toEqual(row);
+    expect(state.document.toast).not.toHaveBeenCalled();
+    expect(state.deploy).toHaveBeenCalledTimes(1);
     expect(state.lock.releaseLock).toHaveBeenCalledTimes(1);
   });
 
@@ -169,6 +229,7 @@ describe('Apps Script Publish', () => {
     expect(state.values()).toEqual(approved);
     expect(state.write).not.toHaveBeenCalled();
     expect(state.document.insertSheet).not.toHaveBeenCalled();
+    expect(state.deploy).not.toHaveBeenCalled();
     expect(state.lock.releaseLock).toHaveBeenCalledTimes(1);
   });
 
@@ -182,6 +243,7 @@ describe('Apps Script Publish', () => {
     expect(state.run).toThrow('Ошибка записи');
     expect(state.values()).toEqual(approved);
     expect(state.document.toast).not.toHaveBeenCalled();
+    expect(state.deploy).not.toHaveBeenCalled();
     expect(state.lock.releaseLock).toHaveBeenCalledTimes(1);
   });
 });

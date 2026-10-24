@@ -17,7 +17,7 @@ const CATALOG_HEADERS = [
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('Каталог')
-    .addItem('Publish — сохранить снимок', 'publishCatalog')
+    .addItem('Publish — обновить сайт', 'publishCatalog')
     .addToUi();
 }
 
@@ -29,6 +29,7 @@ function publishCatalog() {
   try {
     // Проверяем весь каталог до любых изменений листа «Опубликовано».
     const records = readFormats_();
+    const deployHookUrl = readDeployHookUrl_();
     const rows = snapshotRows_(records);
     const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
     let published = spreadsheet.getSheetByName('Опубликовано');
@@ -57,12 +58,43 @@ function publishCatalog() {
 
     published.getRange(1, 1, height, CATALOG_HEADERS.length).setRichTextValues(values);
     SpreadsheetApp.flush();
-    const message = 'Снимок «Опубликовано» сохранён. Форматов: ' + records.length;
+    // Сборка читает уже сохранённые значения, а не рабочие ячейки.
+    triggerDeployment_(deployHookUrl);
+    const message = 'Снимок «Опубликовано» сохранён. Форматов: ' + records.length + '. Запрос на сборку сайта отправлен.';
     console.log(message);
     spreadsheet.toast(message, 'Publish', 8);
     return records.length;
   } finally {
     lock.releaseLock();
+  }
+}
+
+function readDeployHookUrl_() {
+  const url = (PropertiesService.getScriptProperties().getProperty('VERCEL_DEPLOY_HOOK_URL') || '').trim();
+  if (!url) {
+    throw new Error('Добавьте VERCEL_DEPLOY_HOOK_URL в свойства скрипта.');
+  }
+  if (!/^https:\/\/api\.vercel\.com\/v1\/integrations\/deploy\/[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+(?:\?buildCache=(?:true|false))?$/.test(url)) {
+    throw new Error('Проверьте VERCEL_DEPLOY_HOOK_URL: нужен адрес Deploy Hook из настроек Vercel.');
+  }
+  return url;
+}
+
+function triggerDeployment_(url) {
+  let status;
+  try {
+    const response = UrlFetchApp.fetch(url, {
+      method: 'post',
+      muteHttpExceptions: true,
+      followRedirects: false,
+    });
+    status = response.getResponseCode();
+  } catch {
+    // Исключение UrlFetchApp может содержать секретный URL. Не выводим его.
+    throw new Error('Снимок сохранён, но запуск сборки не подтверждён. Проверьте Deployments в Vercel.');
+  }
+  if (status < 200 || status >= 300) {
+    throw new Error('Снимок сохранён, но Vercel не принял запуск сборки (HTTP ' + status + '). Проверьте Deploy Hook.');
   }
 }
 
