@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "check:sheets": "node scripts/check-sheets-access.mjs",
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
@@ -11,6 +12,7 @@
     "test:watch": "vitest"
   },
   "devDependencies": {
+    "google-auth-library": "^11.3.1",
     "typescript": "^5.9.2",
     "vite": "^7.1.3",
     "vitest": "^3.2.4"
