@@ -92,7 +92,15 @@ describe('Apps Script Publish', () => {
     let failWrite = false;
     let deployStatus = 200;
     let deployError: Error | null = null;
+    let failIdWrite = false;
+    let nextUuid = 0;
     const events: string[] = [];
+    const getUuid = vi.fn(() => '00000000-0000-4000-8000-' + String(++nextUuid).padStart(12, '0'));
+    const idWrite = vi.fn((rowNumber: number, value: string) => {
+      if (failIdWrite) throw new Error('Ошибка записи id');
+      events.push('id');
+      draft[rowNumber - 1][0] = value;
+    });
     const lock = { waitLock: vi.fn(), releaseLock: vi.fn() };
     const write = vi.fn((values: Array<Array<{ text: string }>>) => {
       if (failWrite) throw new Error('Ошибка записи');
@@ -116,7 +124,11 @@ describe('Apps Script Publish', () => {
     };
     const work = {
       getLastRow: () => draft.length,
-      getRange: () => ({ getDisplayValues: () => draft.map((row) => [...row]) }),
+      getRange: (rowNumber: number) => ({
+        getDisplayValues: () => draft.map((row) => [...row]),
+        isBlank: () => draft[rowNumber - 1][0] === '',
+        setValue: (value: string) => idWrite(rowNumber, value),
+      }),
     };
     const document = {
       getSheetByName: (name: string) => name === 'Все форматы' ? work : exists ? target : null,
@@ -133,6 +145,7 @@ describe('Apps Script Publish', () => {
       },
       PropertiesService: { getScriptProperties: () => ({ getProperty }) },
       UrlFetchApp: { fetch: deploy },
+      Utilities: { getUuid },
       LockService: { getDocumentLock: () => lock },
       console: { log: vi.fn() },
     };
@@ -140,11 +153,194 @@ describe('Apps Script Publish', () => {
       run: () => new Script(source + '\npublishCatalog();').runInNewContext({ ...context }),
       values: () => published,
       failWrite: () => { failWrite = true; },
+      allowWrite: () => { failWrite = false; },
+      failIdWrite: () => { failIdWrite = true; },
       rejectDeploy: (status: number) => { deployStatus = status; },
       failDeploy: () => { deployError = new Error('Request failed: ' + configuredHook); },
-      document, write, lock, deploy, getProperty, events,
+      document, work, write, lock, deploy, getProperty, events, getUuid, idWrite,
     };
   }
+
+  it('assigns UUIDs only to new named rows, persisting them before publishing', () => {
+    const first = ['', 'Новый формат', ...row.slice(2), 'Видео остаётся в рабочем листе'];
+    const second = ['', 'Другой формат', ...row.slice(2)];
+    const empty = Array(11).fill('');
+    const draft = [headers, [...row], empty, first, second];
+    const original = draft.map(value => [...value]);
+    const state = environment(draft);
+
+    expect(state.run()).toBe(3);
+    expect(first[0]).toMatch(/^format-[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/);
+    expect(second[0]).not.toBe(first[0]);
+    expect(state.idWrite.mock.calls).toEqual([[4, first[0]], [5, second[0]]]);
+    expect(draft[1]).toEqual(original[1]);
+    expect(empty).toEqual(original[2]);
+    expect(first.slice(1)).toEqual(original[3].slice(1));
+    expect(second.slice(1)).toEqual(original[4].slice(1));
+    expect(state.events).toEqual(['id', 'id', 'flush', 'write', 'flush', 'deploy']);
+    expect(parseFormatsJson(fromRows(state.values())).map(record => record.id)).toEqual([row[0], first[0], second[0]]);
+    expect(state.document.toast).toHaveBeenCalledWith(expect.stringContaining('Создано id: 2'), 'Publish', 8);
+  });
+
+  it('keeps an automatically assigned ID after renaming and publishing again', () => {
+    const record = ['', 'Первое название', ...row.slice(2)];
+    const state = environment([headers, record]);
+    state.run();
+    const id = record[0];
+    record[1] = 'Совсем другое название';
+    state.run();
+    expect(record[0]).toBe(id);
+    expect(state.values()[1][0]).toBe(id);
+    expect(state.values()[1][1]).toBe(record[1]);
+    expect(state.getUuid).toHaveBeenCalledTimes(1);
+    expect(state.idWrite).toHaveBeenCalledTimes(1);
+  });
+
+  it('never rewrites existing IDs or assigns IDs to blank rows', () => {
+    const empty = Array(11).fill('');
+    const state = environment([headers, [...row], empty]);
+    state.run();
+    expect(state.getUuid).not.toHaveBeenCalled();
+    expect(state.idWrite).not.toHaveBeenCalled();
+    expect(state.values()[1][0]).toBe(row[0]);
+    expect(empty[0]).toBe('');
+  });
+
+  it('reserves IDs from later existing rows when resolving a generated collision', () => {
+    const newRecord = ['', 'Новый формат', ...row.slice(2)];
+    const existingId = 'format-00000000-0000-4000-8000-000000000001';
+    const existing = [existingId, ...row.slice(1)];
+    const state = environment([headers, newRecord, existing]);
+    state.run();
+    expect(newRecord[0]).not.toBe(existingId);
+    expect(existing[0]).toBe(existingId);
+    expect(state.getUuid).toHaveBeenCalledTimes(2);
+    expect(new Set(state.values().slice(1).map(record => record[0])).size).toBe(2);
+  });
+
+  it('resolves collisions between new rows and stops after repeated collisions', () => {
+    const uuid = '00000000-0000-4000-8000-000000000001';
+    const first = ['', 'Первый', ...row.slice(2)];
+    const second = ['', 'Второй', ...row.slice(2)];
+    const state = environment([headers, first, second]);
+    state.getUuid.mockReturnValueOnce(uuid).mockReturnValueOnce(uuid);
+    state.run();
+    expect(first[0]).not.toBe(second[0]);
+
+    const collision = environment([headers, ['', 'Новый', ...row.slice(2)], ['format-' + uuid, ...row.slice(1)]]);
+    collision.getUuid.mockReturnValue(uuid);
+    expect(collision.run).toThrow('уникальный id');
+    expect(collision.getUuid).toHaveBeenCalledTimes(10);
+    expect(collision.idWrite).not.toHaveBeenCalled();
+    expect(collision.write).not.toHaveBeenCalled();
+    expect(collision.deploy).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { invalid: ['', '', ...row.slice(2)] },
+    { invalid: ['', 'Новый', ...row.slice(2, 3), 'возможно', ...row.slice(4)] },
+    { invalid: ['INVALID', ...row.slice(1)] },
+    { invalid: [...row] },
+  ])('does not persist generated IDs or publish when another row is invalid: $invalid', ({ invalid }) => {
+    const newRecord = ['', 'Новый формат', ...row.slice(2)];
+    const approved = [headers, [...row]];
+    const draft = [headers, [...row], newRecord, [...invalid]];
+    const before = draft.map(record => [...record]);
+    const state = environment(draft, approved);
+    expect(state.run).toThrow();
+    expect(draft).toEqual(before);
+    expect(state.idWrite).not.toHaveBeenCalled();
+    expect(state.values()).toEqual(approved);
+    expect(state.deploy).not.toHaveBeenCalled();
+  });
+
+  it('does not write new IDs when the deploy hook is missing', () => {
+    const record = ['', 'Новый', ...row.slice(2)];
+    const state = environment([headers, record], undefined, '');
+    expect(state.run).toThrow('VERCEL_DEPLOY_HOOK_URL');
+    expect(record[0]).toBe('');
+    expect(state.idWrite).not.toHaveBeenCalled();
+    expect(state.document.insertSheet).not.toHaveBeenCalled();
+  });
+
+  it('keeps the published snapshot when writing an ID fails', () => {
+    const approved = [headers, [...row]];
+    const record = ['', 'Новый', ...row.slice(2)];
+    const state = environment([headers, record], approved);
+    state.failIdWrite();
+    expect(state.run).toThrow('Ошибка записи id');
+    expect(record[0]).toBe('');
+    expect(state.values()).toEqual(approved);
+    expect(state.write).not.toHaveBeenCalled();
+    expect(state.deploy).not.toHaveBeenCalled();
+    expect(state.lock.releaseLock).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps already written IDs if a later ID write fails, then completes publication on retry', () => {
+    const first = ['', 'Первый', ...row.slice(2)];
+    const second = ['', 'Второй', ...row.slice(2)];
+    const approved = [headers, [...row]];
+    const draft = [headers, first, second];
+    const state = environment(draft, approved);
+    state.idWrite.mockImplementationOnce((rowNumber, value) => { draft[rowNumber - 1][0] = value; });
+    state.idWrite.mockImplementationOnce(() => { throw new Error('Ошибка второго id'); });
+    expect(state.run).toThrow('Ошибка второго id');
+    const firstId = first[0];
+    expect(firstId).toMatch(/^format-/);
+    expect(second[0]).toBe('');
+    expect(state.values()).toEqual(approved);
+    expect(state.deploy).not.toHaveBeenCalled();
+    state.run();
+    expect(first[0]).toBe(firstId);
+    expect(second[0]).toMatch(/^format-/);
+    expect(state.values().slice(1).map(record => record[0])).toEqual([first[0], second[0]]);
+  });
+
+  it('does not overwrite an ID filled in after reading the draft', () => {
+    const record = ['', 'Новый', ...row.slice(2)];
+    const state = environment([headers, record]);
+    const getRange = state.work.getRange;
+    vi.spyOn(state.work, 'getRange').mockImplementation(rowNumber => {
+      if (rowNumber === 2) record[0] = 'manually-added';
+      return getRange(rowNumber);
+    });
+    expect(state.run).toThrow('ячейка id уже заполнена');
+    expect(record[0]).toBe('manually-added');
+    expect(state.idWrite).not.toHaveBeenCalled();
+    expect(state.write).not.toHaveBeenCalled();
+    expect(state.deploy).not.toHaveBeenCalled();
+  });
+
+  it('reuses the persisted ID when retrying a failed snapshot write', () => {
+    const record = ['', 'Новый', ...row.slice(2)];
+    const approved = [headers, [...row]];
+    const state = environment([headers, record], approved);
+    state.failWrite();
+    expect(state.run).toThrow('Ошибка записи');
+    const id = record[0];
+    expect(id).toMatch(/^format-/);
+    expect(state.values()).toEqual(approved);
+    state.allowWrite();
+    state.run();
+    expect(record[0]).toBe(id);
+    expect(state.values()[1][0]).toBe(id);
+    expect(state.getUuid).toHaveBeenCalledTimes(1);
+    expect(state.idWrite).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the ID and snapshot when Vercel rejects the request, then reuses them on retry', () => {
+    const record = ['', 'Новый', ...row.slice(2)];
+    const state = environment([headers, record]);
+    state.rejectDeploy(500);
+    expect(state.run).toThrow('HTTP 500');
+    const id = record[0];
+    expect(state.values()[1][0]).toBe(id);
+    state.rejectDeploy(200);
+    state.run();
+    expect(state.values()[1][0]).toBe(id);
+    expect(state.getUuid).toHaveBeenCalledTimes(1);
+    expect(state.idWrite).toHaveBeenCalledTimes(1);
+  });
 
   it('creates a snapshot accepted by the site, preserving text without live formulas', () => {
     const draftRow = [...row];

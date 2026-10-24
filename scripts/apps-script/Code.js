@@ -28,8 +28,17 @@ function publishCatalog() {
 
   try {
     // Проверяем весь каталог до любых изменений листа «Опубликовано».
-    const records = readFormats_();
+    const { sheet, records, newIds } = readFormats_();
     const deployHookUrl = readDeployHookUrl_();
+    // Сначала закрепляем новые id в рабочем листе. При повторном Publish они сохранятся.
+    newIds.forEach(({ row, id }) => {
+      const cell = sheet.getRange(row, 1);
+      if (!cell.isBlank()) {
+        throw new Error('Строка ' + row + ': ячейка id уже заполнена. Проверьте её и повторите Publish.');
+      }
+      cell.setValue(id);
+    });
+    if (newIds.length) SpreadsheetApp.flush();
     const rows = snapshotRows_(records);
     const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
     let published = spreadsheet.getSheetByName('Опубликовано');
@@ -60,7 +69,9 @@ function publishCatalog() {
     SpreadsheetApp.flush();
     // Сборка читает уже сохранённые значения, а не рабочие ячейки.
     triggerDeployment_(deployHookUrl);
-    const message = 'Снимок «Опубликовано» сохранён. Форматов: ' + records.length + '. Запрос на сборку сайта отправлен.';
+    const message = 'Снимок «Опубликовано» сохранён. Форматов: ' + records.length
+      + (newIds.length ? '. Создано id: ' + newIds.length : '')
+      + '. Запрос на сборку сайта отправлен.';
     console.log(message);
     spreadsheet.toast(message, 'Publish', 8);
     return records.length;
@@ -115,7 +126,26 @@ function readFormats_() {
 
   const rows = sheet.getRange(1, 1, sheet.getLastRow(), CATALOG_HEADERS.length)
     .getDisplayValues();
-  return parseFormatRows_(rows);
+  // Резервируем все существующие id, включая строки ниже новой записи.
+  const usedIds = new Set(rows.slice(1).map((row) => String(row[0] || '').trim()).filter(Boolean));
+  const newIds = [];
+  rows.slice(1).forEach((row, index) => {
+    if (String(row[0] || '').trim() || !String(row[1] || '').trim()) return;
+    let id;
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const candidate = 'format-' + Utilities.getUuid().toLowerCase();
+      if (!usedIds.has(candidate)) {
+        id = candidate;
+        break;
+      }
+    }
+    if (!id) throw new Error('Не удалось создать уникальный id. Повторите Publish.');
+    usedIds.add(id);
+    row[0] = id;
+    newIds.push({ row: index + 2, id });
+  });
+  // Проверка всего каталога происходит до записи любых значений в таблицу.
+  return { sheet, records: parseFormatRows_(rows), newIds };
 }
 
 function parseFormatRows_(rows) {
@@ -132,11 +162,11 @@ function parseFormatRows_(rows) {
 
     const rowNumber = index + 2;
     const [id, title, description, moderator, audience, props, furniture, note, forms, features, collections] = cells;
+    if (!title) throw new Error('Строка ' + rowNumber + ': отсутствует название.');
     if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id)) {
       throw new Error('Строка ' + rowNumber + ': отсутствует или некорректен id.');
     }
     if (seenIds.has(id)) throw new Error('Строка ' + rowNumber + ': повторяющийся id ' + id + '.');
-    if (!title) throw new Error('Строка ' + rowNumber + ': отсутствует название.');
     seenIds.add(id);
 
     records.push({
