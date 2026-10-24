@@ -19,18 +19,6 @@ function onOpen() {
     .addToUi();
 }
 
-function checkCatalog() {
-  const catalog = readCatalog_();
-  console.log('Найдено форматов: ' + catalog.records.length);
-}
-
-function previewCatalog() {
-  const catalog = readCatalog_();
-  console.log('JSON готов. Форматов: ' + catalog.records.length);
-  console.log('Версия схемы: ' + catalog.schemaVersion);
-  console.log('Пример записи:\n' + JSON.stringify(catalog.records[0], null, 2));
-}
-
 function publishCatalog() {
   const lock = LockService.getDocumentLock();
   if (!lock) throw new Error('Запустите Publish из своей таблицы.');
@@ -38,8 +26,8 @@ function publishCatalog() {
 
   try {
     // Проверяем весь каталог до любых изменений листа «Опубликовано».
-    const catalog = readCatalog_();
-    const rows = catalogSnapshotRows_(catalog);
+    const records = readFormats_();
+    const rows = snapshotRows_(records);
     const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
     let published = spreadsheet.getSheetByName('Опубликовано');
     if (!published) {
@@ -67,35 +55,35 @@ function publishCatalog() {
 
     published.getRange(1, 1, height, CATALOG_HEADERS.length).setRichTextValues(values);
     SpreadsheetApp.flush();
-    const message = 'Снимок «Опубликовано» сохранён. Форматов: ' + catalog.records.length;
+    const message = 'Снимок «Опубликовано» сохранён. Форматов: ' + records.length;
     console.log(message);
     spreadsheet.toast(message, 'Publish', 8);
-    return catalog.records.length;
+    return records.length;
   } finally {
     lock.releaseLock();
   }
 }
 
-function catalogSnapshotRows_(catalog) {
+function snapshotRows_(records) {
   const flag = (value) => value === null ? '' : value ? 'TRUE' : 'FALSE';
-  return [CATALOG_HEADERS.slice(), ...catalog.records.map((record) => [
+  return [CATALOG_HEADERS.slice(), ...records.map((record) => [
     record.id, record.title, record.description,
     flag(record.moderator), flag(record.audienceOnStage), flag(record.props),
     record.furniture, record.note, record.tags.join(', '),
   ])];
 }
 
-function readCatalog_() {
+function readFormats_() {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Все форматы');
   if (!sheet) throw new Error('Не найден лист «Все форматы».');
   if (sheet.getLastRow() < 2) throw new Error('На листе нет форматов.');
 
   const rows = sheet.getRange(1, 1, sheet.getLastRow(), CATALOG_HEADERS.length)
     .getDisplayValues();
-  return parseCatalogRows_(rows);
+  return parseFormatRows_(rows);
 }
 
-function parseCatalogRows_(rows) {
+function parseFormatRows_(rows) {
   const headers = rows[0] || [];
   if (!CATALOG_HEADERS.every((header, index) => String(headers[index] || '').trim() === header)) {
     throw new Error('Изменились заголовки или порядок колонок A–I.');
@@ -130,7 +118,7 @@ function parseCatalogRows_(rows) {
   });
 
   if (records.length === 0) throw new Error('В таблице нет форматов.');
-  return { schemaVersion: 2, generatedAt: new Date().toISOString(), records };
+  return records;
 }
 
 function parseCatalogFlag_(value, rowNumber, field) {

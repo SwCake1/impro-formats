@@ -10,12 +10,16 @@ const headers = [
   'Дополнительно', 'Тип формата (тег)',
 ];
 const source = readFileSync(new URL('./Code.js', import.meta.url), 'utf8');
-const script = new Script(source + '\nJSON.stringify(parseCatalogRows_(inputRows));');
-const fromRows = (rows: string[][]) => JSON.parse(script.runInNewContext({ inputRows: rows }));
+const script = new Script(source + '\nJSON.stringify(parseFormatRows_(inputRows));');
+const fromRows = (rows: string[][]) => ({
+  schemaVersion: 2,
+  generatedAt: '2026-10-24T00:00:00.000Z',
+  records: JSON.parse(script.runInNewContext({ inputRows: rows })),
+});
 const row = ['2-komnaty', '2 комнаты', 'Первая строка\nВторая строка', 'TRUE', 'FALSE', '', 'Стулья', '', 'Короткая форма, Угадайки'];
 
-describe('Apps Script catalog export', () => {
-  it('exports all snapshot fields in the schema accepted by the site', () => {
+describe('Apps Script format validation', () => {
+  it('preserves all public fields needed by the site', () => {
     const flag = (value: boolean | null) => value === null ? '' : String(value).toUpperCase();
     const rows = snapshot.records.map((record) => [
       record.id, record.title, record.description,
