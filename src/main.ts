@@ -1,9 +1,14 @@
 import './styles.css';
+import { inject } from '@vercel/analytics';
 import { FEATURE_TAGS, FORM_TAGS } from './config';
 import { fetchFormats, readCache, writeCache } from './data';
 import { countActiveFilters, DEFAULT_FILTERS, filterFormats } from './filters';
 import type { FilterState, FormatRecord, FurnitureFilter, OptionalBoolean, TriState } from './types';
 import { readFiltersFromUrl, writeFiltersToUrl } from './url-state';
+
+if (import.meta.env.PROD && import.meta.env.VERCEL) {
+  inject({ mode: 'production' });
+}
 
 function element<T extends HTMLElement>(selector: string): T {
   const node = document.querySelector<T>(selector);
