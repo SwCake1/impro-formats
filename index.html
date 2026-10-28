@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ru">
+<html lang="ru" class="app-starting">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -8,11 +8,533 @@
       content="Каталог импровизационных форматов с поиском и фильтрами"
     />
     <meta name="theme-color" content="#f6f1e8" />
+    <!-- Critical page styles are inline so the real layout appears before CSS and JavaScript. -->
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: 'Onest', system-ui, sans-serif;
+        font-synthesis: none;
+        text-rendering: optimizeLegibility;
+        --canvas: #f6f1e8;
+        --surface: #fdfbf6;
+        --surface-muted: #e9e1d3;
+        --ink: #29283a;
+        --muted: #6d6b79;
+        --accent: #62649a;
+        --accent-strong: #414677;
+        --accent-pale: #e2e1f0;
+        --line: #ded6c7;
+        --line-strong: #c2b7a5;
+        --warm: #b78447;
+        --note-surface: #f1e4d1;
+        --white: #fff;
+        --shadow: 0 20px 60px color-mix(in srgb, var(--ink) 10%, transparent);
+        --focus: 0 0 0 4px color-mix(in srgb, var(--accent) 24%, transparent);
+        color: var(--ink);
+        background: var(--canvas);
+      }
+
+      * { box-sizing: border-box; }
+
+      html {
+        min-width: 320px;
+      }
+
+      body {
+        margin: 0;
+        min-width: 320px;
+        min-height: 100vh;
+        background: var(--canvas);
+      }
+
+      button,
+      input,
+      select { font: inherit; }
+
+      button,
+      a,
+      select,
+      input { -webkit-tap-highlight-color: transparent; }
+
+      button { color: inherit; }
+      a { color: inherit; }
+
+      button:focus-visible,
+      a:focus-visible,
+      input:focus-visible,
+      select:focus-visible,
+      [tabindex]:focus-visible {
+        outline: none;
+        box-shadow: var(--focus);
+      }
+
+      [hidden] { display: none !important; }
+
+      .hero {
+        border-bottom: 1px solid var(--line);
+        background: var(--surface);
+      }
+
+      .topbar,
+      .hero__content,
+      .catalog,
+      .footer {
+        width: min(1520px, calc(100% - 56px));
+        margin-inline: auto;
+      }
+
+      .topbar {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        justify-content: flex-start;
+        min-height: 62px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .brand,
+      .project-link {
+        display: inline-flex;
+        gap: 11px;
+        align-items: center;
+        font-weight: 650;
+        text-decoration: none;
+      }
+
+      .brand {
+        font-size: 15px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+
+      .topbar__separator {
+        width: 1px;
+        height: 16px;
+        background: var(--line-strong);
+      }
+
+      .project-link {
+        gap: 7px;
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 500;
+        letter-spacing: 0;
+        white-space: nowrap;
+        transition: color 150ms ease;
+      }
+
+      .project-link:hover {
+        color: var(--accent-strong);
+      }
+
+      .footer a:hover {
+        text-decoration-thickness: 1px;
+        text-underline-offset: 4px;
+      }
+
+      .hero__content {
+        padding-block: clamp(28px, 3vw, 42px) 30px;
+      }
+
+      .hero__intro {
+        display: block;
+      }
+
+      .section-kicker,
+      .footer__label {
+        margin: 0;
+        color: var(--accent-strong);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .hero h1 {
+        max-width: 720px;
+        margin: 0 0 12px;
+        font-family: 'Literata', Georgia, serif;
+        font-size: clamp(38px, 5vw, 62px);
+        font-weight: 500;
+        letter-spacing: -0.045em;
+        line-height: 1.02;
+      }
+
+      .hero__lead {
+        max-width: 650px;
+        margin: 0;
+        color: var(--muted);
+        font-size: clamp(15px, 1.4vw, 18px);
+        line-height: 1.55;
+      }
+
+      .cue-search {
+        max-width: 1080px;
+        margin-top: 23px;
+        padding: 5px 8px 7px;
+        border: 1px solid var(--line-strong);
+        border-radius: 15px;
+        background: var(--white);
+        box-shadow: 0 8px 24px color-mix(in srgb, var(--ink) 5%, transparent);
+        transition: border-color 150ms ease, box-shadow 150ms ease;
+      }
+
+      .cue-search:focus-within {
+        border-color: var(--accent);
+        box-shadow: var(--focus);
+      }
+
+      .cue-search input:focus-visible {
+        box-shadow: none;
+      }
+
+      .cue-search input::-webkit-search-cancel-button {
+        appearance: none;
+      }
+
+      .cue-search__label-row {
+        position: relative;
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        padding: 4px 12px 6px;
+        color: var(--muted);
+        font-size: 10px;
+        font-weight: 650;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .search-help {
+        display: inline-flex;
+      }
+
+      .search-help__trigger {
+        display: grid;
+        width: 16px;
+        height: 16px;
+        padding: 0;
+        place-items: center;
+        border: 1px solid var(--line-strong);
+        border-radius: 50%;
+        background: transparent;
+        color: var(--accent-strong);
+        cursor: help;
+        font-size: 10px;
+        font-weight: 700;
+        line-height: 1;
+      }
+
+      .search-help__tooltip {
+        position: absolute;
+        z-index: 20;
+        top: calc(100% + 8px);
+        left: 0;
+        width: min(360px, calc(100vw - 56px));
+        padding: 10px 12px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--ink);
+        box-shadow: 0 10px 26px color-mix(in srgb, var(--ink) 16%, transparent);
+        color: var(--white);
+        font-size: 11px;
+        font-weight: 450;
+        letter-spacing: 0;
+        line-height: 1.45;
+        opacity: 0;
+        pointer-events: none;
+        text-transform: none;
+        transform: translateY(-4px);
+        transition: opacity 120ms ease, transform 120ms ease, visibility 120ms ease;
+        visibility: hidden;
+      }
+
+      .search-help:hover .search-help__tooltip,
+      .search-help:focus-within .search-help__tooltip {
+        opacity: 1;
+        transform: translateY(0);
+        visibility: visible;
+      }
+
+      .cue-search__field {
+        display: flex;
+        align-items: center;
+      }
+
+      .cue-search__field svg {
+        width: 24px;
+        height: 24px;
+        margin-left: 10px;
+        fill: none;
+        stroke: var(--accent-strong);
+        stroke-linecap: round;
+        stroke-width: 1.8;
+      }
+
+      .cue-search input {
+        min-width: 0;
+        flex: 1;
+        padding: 6px 11px 8px;
+        border: 0;
+        outline: 0;
+        background: transparent;
+        color: var(--ink);
+        font-size: clamp(15px, 1.7vw, 19px);
+        font-weight: 500;
+      }
+
+      .cue-search input::placeholder {
+        color: color-mix(in srgb, var(--muted) 82%, transparent);
+        font-weight: 400;
+      }
+
+      .catalog {
+        --filter-width: 280px;
+        --detail-width: 500px;
+        position: relative;
+        display: grid;
+        grid-template-columns: var(--filter-width) minmax(380px, 1fr) var(--detail-width);
+        gap: 18px;
+        align-items: start;
+        padding-block: 30px 72px;
+      }
+
+      .filter-heading,
+      .results__heading,
+      .detail-panel__topline {
+        display: flex;
+        gap: 16px;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .filter-heading h2,
+      .results__heading h2,
+      .detail-empty h2 {
+        margin: 0;
+        font-family: 'Literata', Georgia, serif;
+        font-size: 21px;
+        font-weight: 600;
+        letter-spacing: -0.025em;
+        line-height: 1.2;
+      }
+
+      .filters-toggle { display: none; }
+      .results { min-width: 0; }
+
+      .results__heading {
+        position: sticky;
+        z-index: 2;
+        top: 18px;
+        margin-bottom: 12px;
+        padding: 18px 20px;
+        border: 1px solid var(--line);
+        border-radius: 15px;
+        background: color-mix(in srgb, var(--surface) 94%, transparent);
+        backdrop-filter: blur(14px);
+      }
+
+      .results__heading h2 {
+        margin-top: 4px;
+        font-size: 21px;
+      }
+
+      .formats-list {
+        display: grid;
+        gap: 9px;
+      }
+
+      @media (max-width: 1220px) {
+        .catalog {
+          grid-template-columns: var(--filter-width) minmax(380px, 1fr);
+        }
+      }
+
+      @media (max-width: 900px) {
+        .topbar,
+        .hero__content,
+        .catalog,
+        .footer {
+          width: min(100% - 32px, 760px);
+        }
+
+        .cue-search { margin-top: 22px; }
+
+        .catalog {
+          grid-template-columns: 1fr;
+          gap: 12px;
+          padding-block: 20px 54px;
+        }
+
+        .filters-toggle {
+          display: flex;
+          width: 100%;
+          min-height: 48px;
+          align-items: center;
+          padding: 11px 15px;
+          border: 1px solid var(--line);
+          border-radius: 12px;
+          background: var(--surface);
+          cursor: pointer;
+          font-weight: 650;
+        }
+
+        .filters-toggle__arrow {
+          margin-left: auto;
+          color: var(--accent-strong);
+          transition: transform 150ms ease;
+        }
+
+        .filters-toggle[aria-expanded='true'] .filters-toggle__arrow {
+          transform: rotate(180deg);
+        }
+
+      }
+
+      @media (max-width: 700px) {
+        .topbar {
+          padding-block: 11px;
+        }
+
+      }
+
+      @media (max-width: 560px) {
+        .hero__content { padding-block: 28px 25px; }
+        .hero h1 { font-size: clamp(36px, 11.5vw, 48px); }
+        .cue-search { margin-top: 20px; }
+        .cue-search__label-row { padding-inline: 8px; }
+
+        .cue-search__field svg {
+          width: 21px;
+          height: 21px;
+          margin-left: 6px;
+        }
+
+        .cue-search input {
+          padding-inline: 9px;
+          font-size: 16px;
+        }
+
+      }
+
+      .filters,
+      .detail-panel {
+        min-width: 0;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: var(--surface);
+      }
+
+      .filters {
+        position: sticky;
+        top: 18px;
+        padding: 16px;
+        border-radius: 12px;
+        max-height: calc(100dvh - 36px);
+        overflow-y: auto;
+        scrollbar-width: thin;
+        container-type: inline-size;
+      }
+
+      .filter-heading { gap: 8px; }
+      .filter-heading h2 { font-family: 'Onest', sans-serif; font-size: 15px; }
+
+      @media (max-width: 900px) {
+        .filters {
+          position: static;
+          display: block;
+          max-height: 0;
+          padding: 0;
+          border: 0;
+          background: transparent;
+          overflow: hidden;
+          opacity: 0;
+          visibility: hidden;
+          transition: max-height 320ms ease, padding-block 320ms ease, opacity 180ms ease, visibility 0s linear 320ms;
+        }
+        .filters.is-open {
+          max-height: 2000px;
+          padding: 16px;
+          border: 1px solid var(--line);
+          background: var(--surface);
+          opacity: 1;
+          visibility: visible;
+          transition: max-height 360ms ease, padding-block 360ms ease, opacity 180ms ease;
+        }
+      }
+
+      /* Keep the real page visible while its interactive controls are prepared. */
+      .app-starting #detailPanel,
+      .app-starting .panel-resizer,
+      .app-starting .footer { display: none; }
+      .app-starting .results { grid-column: 2; }
+      .catalog-loading { display: grid; gap: 9px; }
+      .filters-skeleton { display: grid; gap: 24px; padding-block: 4px 10px; }
+      .filters-skeleton__title,
+      .filters-skeleton__group::before,
+      .filters-skeleton__group span {
+        border-radius: 7px;
+        background: var(--surface-muted);
+      }
+      .filters-skeleton__title { width: 80px; height: 15px; }
+      .filters-skeleton__group { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+      .filters-skeleton__group::before {
+        grid-column: 1 / -1;
+        width: 44%;
+        height: 10px;
+        margin-bottom: 2px;
+        content: '';
+      }
+      .filters-skeleton__group span { height: 30px; }
+      .filters-skeleton__group--conditions span { grid-column: 1 / -1; height: 32px; }
+      .format-skeleton {
+        padding: 24px 18px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: var(--surface);
+      }
+      .format-skeleton::before,
+      .format-skeleton::after {
+        display: block;
+        border-radius: 4px;
+        content: '';
+      }
+      .format-skeleton::before {
+        width: 48%;
+        height: 20px;
+        margin-bottom: 20px;
+        background: var(--surface-muted);
+      }
+      .format-skeleton::after {
+        height: 52px;
+        background: repeating-linear-gradient(to bottom, var(--surface-muted) 0 10px, transparent 10px 21px);
+      }
+      .catalog-loading__retry {
+        margin: 4px 0 0;
+        visibility: hidden;
+        animation: loading-retry 0s 10s forwards;
+      }
+      .catalog-loading__retry a {
+        display: inline-flex;
+        min-height: 44px;
+        align-items: center;
+        color: var(--accent-strong);
+        text-underline-offset: 4px;
+      }
+      @keyframes loading-retry { to { visibility: visible; } }
+      @media (max-width: 900px) {
+        .app-starting .results { grid-column: auto; }
+        .app-starting #filtersPanel { display: none; }
+      }
+    </style>
+    <link id="appStyles" rel="stylesheet" href="/src/styles.css" media="print" fetchpriority="high" onload="this.media='all'" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,500;7..72,600&amp;family=Onest:wght@400;500;600;650;700&amp;display=swap"
       rel="stylesheet"
+      media="print"
+      onload="this.media='all'"
     />
     <title>Что сыграем? — форматы импровизации</title>
   </head>
@@ -45,7 +567,7 @@
           </div>
         </div>
 
-        <div class="cue-search">
+        <div class="cue-search" inert>
           <div class="cue-search__label-row">
             <label for="searchInput">Поиск по каталогу</label>
             <span class="search-help">
@@ -61,7 +583,7 @@
             </span>
           </div>
           <div class="cue-search__field">
-            <svg aria-hidden="true" viewBox="0 0 24 24">
+            <svg aria-hidden="true" viewBox="0 0 24 24" width="24" height="24" fill="none">
               <path d="m21 21-4.35-4.35m2.35-5.65a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z" />
             </svg>
             <input
@@ -82,6 +604,7 @@
     <main class="catalog" id="catalog">
       <button
         id="filtersToggle"
+        disabled
         class="filters-toggle"
         type="button"
         aria-controls="filtersPanel"
@@ -92,72 +615,89 @@
         <span class="filters-toggle__arrow" aria-hidden="true">↓</span>
       </button>
 
-      <aside id="filtersPanel" class="filters" aria-label="Фильтры каталога">
-        <div class="filter-heading">
-          <h2 id="filtersTitle">Фильтры</h2>
-          <button id="resetFiltersTop" class="text-button" type="button">Сбросить</button>
+      <aside id="filtersPanel" class="filters" aria-label="Фильтры каталога" aria-busy="true">
+        <div id="filtersLoading" class="filters-skeleton" aria-hidden="true">
+          <div class="filters-skeleton__title"></div>
+          <div class="filters-skeleton__group">
+            <span></span><span></span><span></span><span></span>
+          </div>
+          <div class="filters-skeleton__group">
+            <span></span><span></span><span></span><span></span>
+          </div>
+          <div class="filters-skeleton__group">
+            <span></span><span></span><span></span><span></span>
+          </div>
+          <div class="filters-skeleton__group filters-skeleton__group--conditions">
+            <span></span><span></span><span></span><span></span>
+          </div>
         </div>
-
-        <fieldset class="filter-group filter-group--form">
-          <legend>Форма</legend>
-          <div id="formFilters" class="tape-filters"></div>
-        </fieldset>
-
-        <section class="filter-disclosure" id="featuresDisclosure">
-          <h3 class="filter-disclosure__title">Особенности <span id="featuresCount"></span></h3>
-          <div class="filter-disclosure__content">
-            <div id="featureFilters" class="tape-filters"></div>
-            <p class="filter-hint">Все выбранные особенности — вместе.</p>
+        <div id="filtersContent" hidden>
+          <div class="filter-heading">
+            <h2 id="filtersTitle">Фильтры</h2>
+            <button id="resetFiltersTop" class="text-button" type="button">Сбросить</button>
           </div>
-        </section>
 
-        <section class="filter-disclosure" id="collectionsDisclosure" aria-labelledby="collectionsTitle">
-          <h3 class="filter-disclosure__title" id="collectionsTitle">Подборки <span id="collectionsCount"></span></h3>
-          <div class="filter-disclosure__content">
-            <div id="collectionFilters" class="tape-filters"></div>
-            <p class="filter-hint">Любая из выбранных подборок.</p>
-          </div>
-        </section>
+          <fieldset class="filter-group filter-group--form">
+            <legend>Форма</legend>
+            <div id="formFilters" class="tape-filters"></div>
+          </fieldset>
 
-        <section class="filter-disclosure" id="conditionsDisclosure">
-          <h3 class="filter-disclosure__title">Условия на сцене <span id="conditionsCount"></span></h3>
-          <div class="filter-disclosure__content filter-group--requirements">
-            <label class="select-field">
-              <span>Модератор</span>
-              <select id="moderatorFilter">
-                <option value="any">Неважно</option>
-                <option value="yes">Нужен</option>
-                <option value="no">Не нужен</option>
-              </select>
-            </label>
-            <label class="select-field">
-              <span>Зритель на сцене</span>
-              <select id="audienceFilter">
-                <option value="any">Неважно</option>
-                <option value="yes">Нужен</option>
-                <option value="no">Не нужен</option>
-              </select>
-            </label>
-            <label class="select-field">
-              <span>Реквизит</span>
-              <select id="propsFilter">
-                <option value="any">Неважно</option>
-                <option value="yes">Нужен</option>
-                <option value="no">Не нужен</option>
-              </select>
-            </label>
-            <label class="select-field">
-              <span>Мебель</span>
-              <select id="furnitureFilter">
-                <option value="any">Неважно</option>
-                <option value="none">Не нужна</option>
-                <option value="chairs">Нужны стулья</option>
-                <option value="tables">Нужен стол</option>
-              </select>
-            </label>
-          </div>
-        </section>
-        <button id="showFilterResults" class="button button--primary filters-results-button" type="button">Показать форматы</button>
+          <section class="filter-disclosure" id="featuresDisclosure">
+            <h3 class="filter-disclosure__title">Особенности <span id="featuresCount"></span></h3>
+            <div class="filter-disclosure__content">
+              <div id="featureFilters" class="tape-filters"></div>
+              <p class="filter-hint">Все выбранные особенности — вместе.</p>
+            </div>
+          </section>
+
+          <section class="filter-disclosure" id="collectionsDisclosure" aria-labelledby="collectionsTitle">
+            <h3 class="filter-disclosure__title" id="collectionsTitle">Подборки <span id="collectionsCount"></span></h3>
+            <div class="filter-disclosure__content">
+              <div id="collectionFilters" class="tape-filters"></div>
+              <p class="filter-hint">Любая из выбранных подборок.</p>
+            </div>
+          </section>
+
+          <section class="filter-disclosure" id="conditionsDisclosure">
+            <h3 class="filter-disclosure__title">Условия на сцене <span id="conditionsCount"></span></h3>
+            <div class="filter-disclosure__content filter-group--requirements">
+              <label class="select-field">
+                <span>Модератор</span>
+                <select id="moderatorFilter">
+                  <option value="any">Неважно</option>
+                  <option value="yes">Нужен</option>
+                  <option value="no">Не нужен</option>
+                </select>
+              </label>
+              <label class="select-field">
+                <span>Зритель на сцене</span>
+                <select id="audienceFilter">
+                  <option value="any">Неважно</option>
+                  <option value="yes">Нужен</option>
+                  <option value="no">Не нужен</option>
+                </select>
+              </label>
+              <label class="select-field">
+                <span>Реквизит</span>
+                <select id="propsFilter">
+                  <option value="any">Неважно</option>
+                  <option value="yes">Нужен</option>
+                  <option value="no">Не нужен</option>
+                </select>
+              </label>
+              <label class="select-field">
+                <span>Мебель</span>
+                <select id="furnitureFilter">
+                  <option value="any">Неважно</option>
+                  <option value="none">Не нужна</option>
+                  <option value="chairs">Нужны стулья</option>
+                  <option value="tables">Нужен стол</option>
+                </select>
+              </label>
+            </div>
+          </section>
+          <button id="showFilterResults" class="button button--primary filters-results-button" type="button">Показать форматы</button>
+        </div>
       </aside>
 
       <div
@@ -178,11 +718,23 @@
         <div class="results__heading">
           <div>
             <p class="section-kicker">Результаты</p>
-            <h2 id="resultsHeading" tabindex="-1"><span id="resultsCount">0</span> <span id="resultsUnit">форматов</span></h2>
+            <h2 id="resultsHeading" tabindex="-1"><span id="resultsCount">Загружаем</span> <span id="resultsUnit">форматы…</span></h2>
           </div>
           <button id="resetFilters" class="button button--quiet" type="button" hidden>
             Сбросить фильтры
           </button>
+        </div>
+        <div id="catalogLoading" class="catalog-loading">
+          <div class="format-skeleton" aria-hidden="true"></div>
+          <div class="format-skeleton" aria-hidden="true"></div>
+          <div class="format-skeleton" aria-hidden="true"></div>
+          <p class="catalog-loading__retry"><a href="">Обновить страницу</a></p>
+          <noscript>
+            <style>
+              .format-skeleton, #filtersPanel, .catalog-loading__retry, .results__heading { display: none; }
+            </style>
+            <p>Для поиска и фильтров включите JavaScript в настройках браузера.</p>
+          </noscript>
         </div>
         <div id="emptyState" class="empty-state" hidden>
           <span class="empty-state__mark" aria-hidden="true">?</span>
@@ -190,7 +742,7 @@
           <p>Уберите один из фильтров или измените запрос.</p>
           <button id="emptyReset" class="button button--primary" type="button">Показать все</button>
         </div>
-        <div id="formatsList" class="formats-list" aria-live="polite"></div>
+        <div id="formatsList" class="formats-list" aria-live="polite" aria-busy="true"></div>
       </section>
 
       <div

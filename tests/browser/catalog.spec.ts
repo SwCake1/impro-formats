@@ -26,7 +26,8 @@ test('keeps a direct link during first load and opens the requested format', asy
   });
   await page.goto('/?format=test-format');
   try {
-    await expect(page.locator('#emptyState h3')).toHaveText('Загружаем форматы…');
+    await expect(page.locator('#resultsHeading')).toHaveText('Загружаем форматы…');
+    await expect(page.locator('#catalogLoading')).toBeVisible();
     await expect(page).toHaveURL(/format=test-format/);
     await expect(page.locator('#emptyReset')).toBeHidden();
   } finally {
@@ -53,6 +54,7 @@ test('keeps the requested format after a failed load and retry', async ({ page }
     ? route.fulfill({ status: 503 }) : route.fulfill({ json: catalog }));
   await page.goto('/?format=test-format');
   await expect(page.locator('#emptyState h3')).toHaveText('Не удалось загрузить форматы');
+  await expect(page.locator('#filtersLoading')).toBeHidden();
   await expect(page).toHaveURL(/format=test-format/);
   await page.getByRole('button', { name: 'Повторить загрузку' }).click();
   await expect(page.locator('#detailTitle')).toHaveText(record.title);

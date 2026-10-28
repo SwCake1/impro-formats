@@ -5,3 +5,10 @@
 Заходит команда Зачарованные в бар на Покровке:
 - Нам как обычно!
 - Подчистить гугл шит
+- Спарсить форматы
+    - С чатов
+    - С бота
+    - Зарисерчить инет
+    - https://impropedia.ru/materialyi/formatyi/?category=0
+    - https://vk.ru/@improvisationtnt-formaty-improvizacionnyh-igr
+- Сделать что бы подгрузка UI была до кеширования таблички

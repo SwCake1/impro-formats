@@ -1,4 +1,3 @@
-import './styles.css';
 import { initializeAnalytics } from './analytics';
 import { initializePanelResize } from './panel-resize';
 import { createDetailDialog } from './detail-dialog';
@@ -19,6 +18,8 @@ const searchInput = element<HTMLInputElement>('#searchInput');
 const clearSearch = element<HTMLButtonElement>('#clearSearch');
 const catalog = element<HTMLElement>('#catalog');
 const filtersPanel = element<HTMLElement>('#filtersPanel');
+const filtersLoading = element<HTMLElement>('#filtersLoading');
+const filtersContent = element<HTMLElement>('#filtersContent');
 const filtersToggle = element<HTMLButtonElement>('#filtersToggle');
 const showFilterResults = element<HTMLButtonElement>('#showFilterResults');
 const filtersResizeHandle = element<HTMLElement>('#filtersResizeHandle');
@@ -34,6 +35,7 @@ const furnitureFilter = element<HTMLSelectElement>('#furnitureFilter');
 const resultsCount = element<HTMLElement>('#resultsCount');
 const resultsHeading = element<HTMLElement>('#resultsHeading');
 const formatsList = element<HTMLElement>('#formatsList');
+const catalogLoading = element<HTMLElement>('#catalogLoading');
 const emptyState = element<HTMLElement>('#emptyState');
 const emptyStateTitle = element<HTMLElement>('#emptyState h3');
 const emptyStateText = element<HTMLElement>('#emptyState p');
@@ -347,22 +349,26 @@ function clearUnavailableSelection(visible: FormatRecord[]): boolean {
 function renderResults(): void {
   const filtered = filterFormats(records, filters);
   clearUnavailableSelection(filtered);
+  const loading = records.length === 0 && loadState === 'loading';
 
-  resultsCount.textContent = String(filtered.length);
-  element('#resultsUnit').textContent = pluralizeFormats(filtered.length);
+  resultsCount.textContent = loading ? 'Загружаем' : String(filtered.length);
+  element('#resultsUnit').textContent = loading ? 'форматы…' : pluralizeFormats(filtered.length);
   showFilterResults.textContent = filtered.length > 0
     ? `Показать ${filtered.length} ${pluralizeFormats(filtered.length)}`
     : 'К результатам';
-  resultsHeading.setAttribute('aria-label', `${filtered.length} ${pluralizeFormats(filtered.length)}`);
+  resultsHeading.setAttribute('aria-label', loading ? 'Загружаем форматы…'
+    : `${filtered.length} ${pluralizeFormats(filtered.length)}`);
   formatsList.replaceChildren(...filtered.map(createFormatRow));
 
-  const loading = records.length === 0 && loadState === 'loading';
   const showError = records.length === 0 && loadState === 'error';
   formatsList.setAttribute('aria-busy', String(loading));
-  emptyState.hidden = filtered.length > 0;
-  emptyStateTitle.textContent = loading ? 'Загружаем форматы…'
-    : showError ? 'Не удалось загрузить форматы' : 'Такого сочетания пока нет';
-  emptyStateText.textContent = loading ? 'Это займёт несколько секунд.' : showError
+  catalogLoading.hidden = !loading;
+  filtersLoading.hidden = !loading;
+  filtersContent.hidden = loading;
+  filtersPanel.setAttribute('aria-busy', String(loading));
+  emptyState.hidden = loading || filtered.length > 0;
+  emptyStateTitle.textContent = showError ? 'Не удалось загрузить форматы' : 'Такого сочетания пока нет';
+  emptyStateText.textContent = showError
     ? 'Проверьте соединение и попробуйте ещё раз.'
     : 'Уберите один из фильтров или измените запрос.';
   emptyReset.hidden = loading;
@@ -567,6 +573,17 @@ let cached = readCache();
 if (cached) {
   records = cached.records;
 }
-initializePanelResize(catalog, { filters: filtersResizeHandle, detail: detailResizeHandle });
-render();
-void loadFreshData();
+
+function startApp(): void {
+  appStyles.media = 'all';
+  document.documentElement.classList.remove('app-starting');
+  element('.cue-search').inert = false;
+  filtersToggle.disabled = false;
+  initializePanelResize(catalog, { filters: filtersResizeHandle, detail: detailResizeHandle });
+  render();
+  void loadFreshData();
+}
+
+const appStyles = element<HTMLLinkElement>('#appStyles');
+if (appStyles.sheet) startApp();
+else appStyles.addEventListener('load', startApp, { once: true });
