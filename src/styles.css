@@ -322,11 +322,18 @@ body.is-resizing-panels {
 }
 
 .empty-state {
-  padding: 70px 24px;
+  padding: 32px 24px 36px;
   border: 1px solid var(--line);
   border-radius: 16px;
   background: var(--surface);
   text-align: center;
+}
+
+.empty-state__illustration {
+  display: block;
+  width: min(200px, 70%);
+  height: auto;
+  margin: 0 auto 20px;
 }
 
 .empty-state__mark {
@@ -656,6 +663,9 @@ body.is-resizing-panels {
 }
 
 @media (max-width: 560px) {
+  .empty-state { padding: 28px 20px 32px; }
+  .empty-state__illustration { width: min(168px, 70%); }
+
   .format-row { padding: 16px; }
   .format-row__description { -webkit-line-clamp: 4; }
 

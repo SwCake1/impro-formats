@@ -740,7 +740,16 @@
           </noscript>
         </div>
         <div id="emptyState" class="empty-state" hidden>
-          <span class="empty-state__mark" aria-hidden="true">?</span>
+          <img
+            class="empty-state__illustration"
+            src="/src/assets/empty-state-search-kitten-600.webp"
+            alt=""
+            width="600"
+            height="548"
+            loading="lazy"
+            decoding="async"
+          />
+          <span class="empty-state__mark" aria-hidden="true" hidden>?</span>
           <h3>Такого сочетания пока нет</h3>
           <p>Уберите один из фильтров или измените запрос.</p>
           <button id="emptyReset" class="button button--primary" type="button">Показать все</button>

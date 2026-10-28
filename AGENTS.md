@@ -2,7 +2,7 @@
 
 Статический каталог на Vite + TypeScript. Браузер читает `data/formats.json` со своего сайта.
 
-Актуальная схема перехода и прогресс — в `docs/plan.md`; обновлять его после выполненных шагов. Схема: ручной `Publish` в Apps Script → снимок значений на листе «Опубликовано» → чтение через Sheets API при сборке Vercel.
+Схема: ручной `Publish` в Apps Script → снимок значений на листе «Опубликовано» → чтение через Sheets API при сборке Vercel.
 
 `npm run build:published` получает и проверяет одобренный снимок, собирает сайт и записывает публичные данные в `dist`. Настройки — серверные переменные `GOOGLE_SHEET_ID` и `GOOGLE_SERVICE_ACCOUNT_JSON` либо локальный путь `GOOGLE_APPLICATION_CREDENTIALS`. Ошибки импорта останавливают сборку. Обычная `npm run build` пока использует фиксированный `public/data/formats.json` для GitHub Pages. Команда сборки Vercel и HTTP-кэш заданы в `vercel.json`. Сайт опубликован на https://impro-formats.vercel.app/ ; каталог и HTTP-кэш проверены. Publish запускает сборку через Deploy Hook, вся цепочка проверена.
 

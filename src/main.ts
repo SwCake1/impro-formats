@@ -37,6 +37,8 @@ const resultsHeading = element<HTMLElement>('#resultsHeading');
 const formatsList = element<HTMLElement>('#formatsList');
 const catalogLoading = element<HTMLElement>('#catalogLoading');
 const emptyState = element<HTMLElement>('#emptyState');
+const emptyStateIllustration = element<HTMLImageElement>('#emptyState .empty-state__illustration');
+const emptyStateMark = element<HTMLElement>('#emptyState .empty-state__mark');
 const emptyStateTitle = element<HTMLElement>('#emptyState h3');
 const emptyStateText = element<HTMLElement>('#emptyState p');
 const resetFilters = element<HTMLButtonElement>('#resetFilters');
@@ -367,6 +369,8 @@ function renderResults(): void {
   filtersContent.hidden = loading;
   filtersPanel.setAttribute('aria-busy', String(loading));
   emptyState.hidden = loading || filtered.length > 0;
+  emptyStateIllustration.hidden = showError;
+  emptyStateMark.hidden = !showError;
   emptyStateTitle.textContent = showError ? 'Не удалось загрузить форматы' : 'Такого сочетания пока нет';
   emptyStateText.textContent = showError
     ? 'Проверьте соединение и попробуйте ещё раз.'
