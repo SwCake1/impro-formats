@@ -1,13 +1,13 @@
 import './styles.css';
-import { inject } from '@vercel/analytics';
+import { initializeAnalytics } from './analytics';
+import { initializePanelResize } from './panel-resize';
+import { createDetailDialog } from './detail-dialog';
 import { fetchFormats, readCache, writeCache } from './data';
 import { classificationOptions, countActiveFilters, DEFAULT_FILTERS, filterFormats } from './filters';
 import type { FilterState, FormatRecord, FurnitureFilter, OptionalBoolean, TriState } from './types';
 import { readFiltersFromUrl, writeFiltersToUrl } from './url-state';
 
-if (import.meta.env.PROD && import.meta.env.VERCEL) {
-  inject({ mode: 'production' });
-}
+initializeAnalytics();
 
 function element<T extends HTMLElement>(selector: string): T {
   const node = document.querySelector<T>(selector);
@@ -54,152 +54,24 @@ const closeDetail = element<HTMLButtonElement>('#closeDetail');
 const copyLink = element<HTMLButtonElement>('#copyLink');
 const toast = element<HTMLElement>('#toast');
 
-const mobileQuery = window.matchMedia('(max-width: 1220px)');
 const resizablePanelsQuery = window.matchMedia('(min-width: 901px)');
-const threePanelsQuery = window.matchMedia('(min-width: 1221px)');
 let records: FormatRecord[] = [];
 let filters: FilterState = readFiltersFromUrl(new URL(window.location.href));
-let selectedTriggerId: string | null = null;
 let toastTimer: number | undefined;
 let loadController: AbortController | null = null;
+let loadState: 'loading' | 'ready' | 'error' = 'loading';
 
-type ResizablePanel = 'filters' | 'detail';
-
-const PANEL_WIDTHS: Record<ResizablePanel, { cssProperty: string; defaultValue: number; storageKey: string }> = {
-  filters: {
-    cssProperty: '--filter-width',
-    defaultValue: 280,
-    storageKey: 'impro-formats:filters-width',
-  },
-  detail: {
-    cssProperty: '--detail-width',
-    defaultValue: 500,
-    storageKey: 'impro-formats:detail-width',
-  },
-};
-
-const PANEL_HANDLES: Record<ResizablePanel, HTMLElement> = {
-  filters: filtersResizeHandle,
-  detail: detailResizeHandle,
-};
-
-function currentPanelWidth(panel: ResizablePanel): number {
-  const value = Number.parseFloat(getComputedStyle(catalog).getPropertyValue(PANEL_WIDTHS[panel].cssProperty));
-  return Number.isFinite(value) ? value : PANEL_WIDTHS[panel].defaultValue;
-}
-
-function panelWidthLimits(panel: ResizablePanel): { min: number; max: number } {
-  const catalogWidth = catalog.getBoundingClientRect().width;
-  if (panel === 'filters') {
-    const detailWidth = threePanelsQuery.matches ? currentPanelWidth('detail') : 0;
-    const gaps = threePanelsQuery.matches ? 36 : 18;
-    return {
-      min: 220,
-      max: Math.max(220, Math.min(480, catalogWidth - detailWidth - gaps - 380)),
-    };
-  }
-
-  return {
-    min: 360,
-    max: Math.max(360, Math.min(720, catalogWidth - (currentPanelWidth('filters') + 36) - 380)),
-  };
-}
-
-function setPanelWidth(panel: ResizablePanel, value: number, persist = false): void {
-  const limits = panelWidthLimits(panel);
-  const width = Math.round(Math.min(limits.max, Math.max(limits.min, value)));
-  const handle = PANEL_HANDLES[panel];
-  catalog.style.setProperty(PANEL_WIDTHS[panel].cssProperty, `${width}px`);
-  handle.setAttribute('aria-valuemin', String(Math.round(limits.min)));
-  handle.setAttribute('aria-valuemax', String(Math.round(limits.max)));
-  handle.setAttribute('aria-valuenow', String(width));
-  handle.setAttribute('aria-valuetext', `${width} пикселей`);
-  if (!persist) return;
-  try {
-    localStorage.setItem(PANEL_WIDTHS[panel].storageKey, String(width));
-  } catch {
-    // The layout still works when storage is unavailable.
-  }
-}
-
-function storedPanelWidth(panel: ResizablePanel): number {
-  try {
-    const value = Number.parseFloat(localStorage.getItem(PANEL_WIDTHS[panel].storageKey) ?? '');
-    if (Number.isFinite(value)) return value;
-  } catch {
-    // Fall back to the default width.
-  }
-  return PANEL_WIDTHS[panel].defaultValue;
-}
-
-function syncPanelWidths(): void {
-  if (!resizablePanelsQuery.matches) return;
-  if (threePanelsQuery.matches) setPanelWidth('detail', currentPanelWidth('detail'));
-  setPanelWidth('filters', currentPanelWidth('filters'));
-}
-
-function enablePanelResize(panel: ResizablePanel): void {
-  const handle = PANEL_HANDLES[panel];
-  let dragStartX = 0;
-  let dragStartWidth = 0;
-  let activePointer: number | null = null;
-
-  handle.addEventListener('pointerdown', (event) => {
-    if (!resizablePanelsQuery.matches || (panel === 'detail' && !threePanelsQuery.matches)) return;
-    event.preventDefault();
-    dragStartX = event.clientX;
-    dragStartWidth = currentPanelWidth(panel);
-    activePointer = event.pointerId;
-    handle.setPointerCapture(event.pointerId);
-    handle.classList.add('is-dragging');
-    document.body.classList.add('is-resizing-panels');
-  });
-
-  handle.addEventListener('pointermove', (event) => {
-    if (event.pointerId !== activePointer) return;
-    const direction = panel === 'filters' ? 1 : -1;
-    setPanelWidth(panel, dragStartWidth + ((event.clientX - dragStartX) * direction));
-  });
-
-  const finishResize = (event: PointerEvent): void => {
-    if (event.pointerId !== activePointer) return;
-    if (handle.hasPointerCapture(event.pointerId)) handle.releasePointerCapture(event.pointerId);
-    activePointer = null;
-    handle.classList.remove('is-dragging');
-    document.body.classList.remove('is-resizing-panels');
-    setPanelWidth(panel, currentPanelWidth(panel), true);
-  };
-
-  handle.addEventListener('pointerup', finishResize);
-  handle.addEventListener('pointercancel', finishResize);
-  handle.addEventListener('keydown', (event) => {
-    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
-    event.preventDefault();
-    const separatorDelta = event.key === 'ArrowRight' ? 16 : -16;
-    const panelDelta = panel === 'filters' ? separatorDelta : -separatorDelta;
-    setPanelWidth(panel, currentPanelWidth(panel) + panelDelta, true);
-  });
-}
-
-function initializePanelResize(): void {
-  if (resizablePanelsQuery.matches) {
-    if (threePanelsQuery.matches) setPanelWidth('detail', storedPanelWidth('detail'));
-    setPanelWidth('filters', storedPanelWidth('filters'));
-  }
-  enablePanelResize('filters');
-  enablePanelResize('detail');
-  window.addEventListener('resize', syncPanelWidths);
-  resizablePanelsQuery.addEventListener('change', ({ matches }) => {
-    if (!matches) return;
-    setPanelWidth('filters', storedPanelWidth('filters'));
-    syncPanelWidths();
-  });
-  threePanelsQuery.addEventListener('change', ({ matches }) => {
-    if (!matches) return;
-    setPanelWidth('detail', storedPanelWidth('detail'));
-    syncPanelWidths();
-  });
-}
+const detailDialog = createDetailDialog({
+  panel: detailPanel,
+  backdrop: detailBackdrop,
+  fallbackFocus: searchInput,
+  background: [
+    element('.hero'), element('.footer'),
+    ...Array.from(catalog.children).filter((node): node is HTMLElement =>
+      node instanceof HTMLElement && node !== detailPanel && node !== detailBackdrop),
+  ],
+  onClose: closeSelectedFormat,
+});
 
 function pluralizeFormats(count: number): string {
   const mod100 = count % 100;
@@ -238,45 +110,53 @@ function createTapeButton(tag: string, selected: boolean, onClick: () => void, k
   return button;
 }
 
+function syncFilterGroup(
+  container: HTMLElement,
+  options: Array<{ label: string; key: string; selected: boolean; onClick: () => void }>,
+): void {
+  const previous = [...container.querySelectorAll<HTMLButtonElement>('button')];
+  const byKey = new Map(previous.map(button => [button.dataset.filterKey, button]));
+  const buttons = options.map(({ label, key, selected, onClick }) => {
+    const button = byKey.get(key) ?? createTapeButton(label, selected, onClick, key);
+    button.setAttribute('aria-pressed', String(selected));
+    return button;
+  });
+  if (previous.length !== buttons.length || previous.some((button, index) => button !== buttons[index])) {
+    container.replaceChildren(...buttons);
+  }
+}
+
+function applyFilterChange(): void {
+  filters.selectedId = null;
+  syncUrl();
+  render();
+}
+
 function renderFilterButtons(): void {
-  formFilters.replaceChildren();
-  formFilters.append(createTapeButton('Все формы', !filters.formTag, () => {
-    filters.formTag = null;
-    filters.selectedId = null;
-    syncUrl();
-    render();
-  }, 'all-forms'));
-  classificationOptions(records, 'forms', filters.formTag ? [filters.formTag] : []).forEach((tag) => {
-    formFilters.append(createTapeButton(tag, filters.formTag === tag, () => {
-      filters.formTag = filters.formTag === tag ? null : tag;
-      filters.selectedId = null;
-      syncUrl();
-      render();
-    }, `form:${tag}`));
-  });
-
-  featureFilters.replaceChildren();
-  classificationOptions(records, 'features', filters.featureTags).forEach((tag) => {
-    featureFilters.append(createTapeButton(tag, filters.featureTags.includes(tag), () => {
-      filters.featureTags = filters.featureTags.includes(tag)
-        ? filters.featureTags.filter((value) => value !== tag)
-        : [...filters.featureTags, tag];
-      filters.selectedId = null;
-      syncUrl();
-      render();
-    }, `feature:${tag}`));
-  });
-
-  collectionFilters.replaceChildren();
-  classificationOptions(records, 'collections', filters.collectionTags).forEach((tag) => {
-    collectionFilters.append(createTapeButton(tag, filters.collectionTags.includes(tag), () => {
-      filters.collectionTags = filters.collectionTags.includes(tag)
-        ? filters.collectionTags.filter((value) => value !== tag)
-        : [...filters.collectionTags, tag];
-      filters.selectedId = null;
-      syncUrl();
-      render();
-    }, `collection:${tag}`));
+  syncFilterGroup(formFilters, [
+    { label: 'Все формы', key: 'all-forms', selected: !filters.formTag, onClick: () => {
+      filters.formTag = null;
+      applyFilterChange();
+    } },
+    ...classificationOptions(records, 'forms', filters.formTag ? [filters.formTag] : []).map(tag => ({
+      label: tag, key: `form:${tag}`, selected: filters.formTag === tag, onClick: () => {
+        filters.formTag = filters.formTag === tag ? null : tag;
+        applyFilterChange();
+      },
+    })),
+  ]);
+  const groups = [
+    { container: featureFilters, field: 'features', state: 'featureTags', prefix: 'feature' },
+    { container: collectionFilters, field: 'collections', state: 'collectionTags', prefix: 'collection' },
+  ] as const;
+  groups.forEach(({ container, field, state, prefix }) => {
+    syncFilterGroup(container, classificationOptions(records, field, filters[state]).map(tag => ({
+      label: tag, key: `${prefix}:${tag}`, selected: filters[state].includes(tag), onClick: () => {
+        filters[state] = filters[state].includes(tag)
+          ? filters[state].filter(value => value !== tag) : [...filters[state], tag];
+        applyFilterChange();
+      },
+    })));
   });
 }
 
@@ -320,9 +200,7 @@ function renderSelectedFilters(): void {
     button.setAttribute('aria-label', `Убрать фильтр: ${label}`);
     button.addEventListener('click', () => {
       remove();
-      filters.selectedId = null;
-      syncUrl();
-      render();
+      applyFilterChange();
       (container.querySelector<HTMLButtonElement>('button') ?? searchInput).focus();
     });
     container.append(button);
@@ -402,7 +280,7 @@ function createFormatRow(record: FormatRecord): HTMLButtonElement {
     metadata.append(needs);
   }
   button.append(header, description, metadata);
-  button.addEventListener('click', () => selectFormat(record.id, button));
+  button.addEventListener('click', () => selectFormat(record.id));
   return button;
 }
 
@@ -432,17 +310,10 @@ function renderDetail(): void {
   if (!record) {
     detailEmpty.hidden = false;
     detailContent.hidden = true;
-    detailPanel.classList.remove('is-open');
-    detailBackdrop.hidden = true;
-    document.body.classList.remove('detail-open');
-    detailPanel.setAttribute('aria-hidden', mobileQuery.matches ? 'true' : 'false');
+    detailDialog.sync(false);
     return;
   }
 
-  if (filters.selectedId !== record.id) {
-    filters.selectedId = record.id;
-    syncUrl();
-  }
   detailEmpty.hidden = true;
   detailContent.hidden = false;
   detailTitle.textContent = record.title;
@@ -460,20 +331,22 @@ function renderDetail(): void {
   detailNoteSection.hidden = !record.note;
   detailNote.textContent = record.note;
 
-  detailPanel.classList.add('is-open');
-  detailPanel.setAttribute('aria-hidden', 'false');
-  if (mobileQuery.matches) {
-    detailBackdrop.hidden = false;
-    document.body.classList.add('detail-open');
+  detailDialog.sync(true, () => formatButton(record.id));
+}
+
+function clearUnavailableSelection(visible: FormatRecord[]): boolean {
+  // A missing record in an old cache is not proof that a shared link is invalid.
+  if (loadState === 'ready' && filters.selectedId && !visible.some(record => record.id === filters.selectedId)) {
+    filters.selectedId = null;
+    syncUrl();
+    return true;
   }
+  return false;
 }
 
 function renderResults(): void {
   const filtered = filterFormats(records, filters);
-  if (filters.selectedId && !filtered.some((record) => record.id === findRecordById(filters.selectedId)?.id)) {
-    filters.selectedId = null;
-    syncUrl();
-  }
+  clearUnavailableSelection(filtered);
 
   resultsCount.textContent = String(filtered.length);
   element('#resultsUnit').textContent = pluralizeFormats(filtered.length);
@@ -483,46 +356,58 @@ function renderResults(): void {
   resultsHeading.setAttribute('aria-label', `${filtered.length} ${pluralizeFormats(filtered.length)}`);
   formatsList.replaceChildren(...filtered.map(createFormatRow));
 
-  const showError = records.length === 0;
+  const loading = records.length === 0 && loadState === 'loading';
+  const showError = records.length === 0 && loadState === 'error';
+  formatsList.setAttribute('aria-busy', String(loading));
   emptyState.hidden = filtered.length > 0;
-  emptyStateTitle.textContent = showError ? 'Не удалось загрузить форматы' : 'Такого сочетания пока нет';
-  emptyStateText.textContent = showError
+  emptyStateTitle.textContent = loading ? 'Загружаем форматы…'
+    : showError ? 'Не удалось загрузить форматы' : 'Такого сочетания пока нет';
+  emptyStateText.textContent = loading ? 'Это займёт несколько секунд.' : showError
     ? 'Проверьте соединение и попробуйте ещё раз.'
     : 'Уберите один из фильтров или измените запрос.';
+  emptyReset.hidden = loading;
   emptyReset.textContent = showError ? 'Повторить загрузку' : 'Показать все';
 }
 
 function render(): void {
   const active = document.activeElement as HTMLElement | null;
   const filterKey = active?.dataset.filterKey;
+  const recordId = active?.dataset.id;
   syncControls();
   renderFilterButtons();
   renderSelectedFilters();
   renderResults();
   renderDetail();
-  if (filterKey && active && !active.isConnected) {
-    document.querySelector<HTMLElement>(`[data-filter-key="${CSS.escape(filterKey)}"]`)?.focus();
+  if (active && !active.isConnected) {
+    if (filterKey) document.querySelector<HTMLElement>(`[data-filter-key="${CSS.escape(filterKey)}"]`)?.focus();
+    else if (recordId) (formatButton(recordId) ?? resultsHeading).focus();
   }
 }
 
-function selectFormat(id: string, trigger?: HTMLElement): void {
-  selectedTriggerId = trigger?.dataset.id ?? id;
+function formatButton(id: string): HTMLButtonElement | null {
+  return formatsList.querySelector<HTMLButtonElement>(`.format-row[data-id="${CSS.escape(id)}"]`);
+}
+
+function renderSelection(): void {
+  formatsList.querySelectorAll<HTMLButtonElement>('.format-row').forEach(button => {
+    button.setAttribute('aria-pressed', String(button.dataset.id === filters.selectedId));
+  });
+  renderDetail();
+}
+
+function selectFormat(id: string): void {
   filters.selectedId = id;
   syncUrl('push');
-  render();
-  if (mobileQuery.matches) {
-    window.setTimeout(() => detailPanel.focus(), 0);
-  }
+  renderSelection();
 }
 
 function closeSelectedFormat(): void {
   if (!filters.selectedId) return;
-  const triggerId = selectedTriggerId ?? filters.selectedId;
+  const trigger = formatButton(filters.selectedId);
   filters.selectedId = null;
   syncUrl('push');
-  render();
-  formatsList.querySelector<HTMLButtonElement>(`.format-row[data-id="${CSS.escape(triggerId)}"]`)?.focus();
-  selectedTriggerId = null;
+  renderSelection();
+  (trigger ?? searchInput).focus({ preventScroll: true });
 }
 
 function resetAll(): void {
@@ -537,25 +422,7 @@ function updateSelectFilters(): void {
   filters.audience = audienceFilter.value as TriState;
   filters.props = propsFilter.value as TriState;
   filters.furniture = furnitureFilter.value as FurnitureFilter;
-  filters.selectedId = null;
-  syncUrl();
-  render();
-}
-
-function syncDetailMode(): void {
-  if (mobileQuery.matches) {
-    detailPanel.setAttribute('role', 'dialog');
-    detailPanel.setAttribute('aria-modal', 'true');
-    detailPanel.setAttribute('aria-hidden', filters.selectedId ? 'false' : 'true');
-    detailBackdrop.hidden = !filters.selectedId;
-    document.body.classList.toggle('detail-open', Boolean(filters.selectedId));
-  } else {
-    detailPanel.removeAttribute('role');
-    detailPanel.removeAttribute('aria-modal');
-    detailPanel.removeAttribute('aria-hidden');
-    detailBackdrop.hidden = true;
-    document.body.classList.remove('detail-open');
-  }
+  applyFilterChange();
 }
 
 async function copyCurrentLink(): Promise<void> {
@@ -563,30 +430,50 @@ async function copyCurrentLink(): Promise<void> {
     await navigator.clipboard.writeText(window.location.href);
     showToast('Ссылка скопирована');
   } catch {
+    const previousFocus = document.activeElement as HTMLElement | null;
     const input = document.createElement('textarea');
     input.value = window.location.href;
     input.style.position = 'fixed';
     input.style.opacity = '0';
-    document.body.append(input);
-    input.select();
-    document.execCommand('copy');
-    input.remove();
-    showToast('Ссылка скопирована');
+    // Keep the fallback inside the dialog so it remains usable while the background is inert.
+    detailPanel.append(input);
+    let copied = false;
+    try {
+      input.select();
+      copied = document.execCommand('copy');
+    } catch {
+      // Some browsers disable both clipboard mechanisms.
+    } finally {
+      input.remove();
+      previousFocus?.focus({ preventScroll: true });
+    }
+    showToast(copied ? 'Ссылка скопирована'
+      : 'Не удалось скопировать ссылку. Скопируйте адрес из строки браузера.');
   }
 }
 
 async function loadFreshData(): Promise<void> {
   loadController?.abort();
-  loadController = new AbortController();
+  const controller = new AbortController();
+  loadController = controller;
+  loadState = 'loading';
+  if (records.length === 0) renderResults();
   try {
-    const fresh = await fetchFormats(loadController.signal, cached);
-    if (fresh === cached) return;
+    const fresh = await fetchFormats(controller.signal, cached);
+    if (loadController !== controller) return;
+    loadState = 'ready';
+    if (fresh === cached) {
+      if (clearUnavailableSelection(filterFormats(records, filters))) renderSelection();
+      return;
+    }
     cached = fresh;
     records = fresh.records;
     writeCache(fresh);
     render();
   } catch (error) {
+    if (loadController !== controller) return;
     if (error instanceof DOMException && error.name === 'AbortError') return;
+    loadState = 'error';
     const reason = error instanceof Error ? error.message : 'Неизвестная ошибка.';
     if (records.length > 0) {
       showToast('Не удалось обновить данные — показываем сохранённые');
@@ -597,37 +484,13 @@ async function loadFreshData(): Promise<void> {
   }
 }
 
-function trapDetailFocus(event: KeyboardEvent): void {
-  if (event.key === 'Escape' && filters.selectedId) {
-    closeSelectedFormat();
-    return;
-  }
-  if (event.key !== 'Tab' || !mobileQuery.matches || !filters.selectedId) return;
-  const focusable = [...detailPanel.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])')]
-    .filter((node) => !node.hidden);
-  if (focusable.length === 0) return;
-  const first = focusable[0];
-  const last = focusable.at(-1);
-  if (event.shiftKey && document.activeElement === first) {
-    event.preventDefault();
-    last?.focus();
-  } else if (!event.shiftKey && document.activeElement === last) {
-    event.preventDefault();
-    first?.focus();
-  }
-}
-
 searchInput.addEventListener('input', () => {
   filters.query = searchInput.value;
-  filters.selectedId = null;
-  syncUrl();
-  render();
+  applyFilterChange();
 });
 clearSearch.addEventListener('click', () => {
   filters.query = '';
-  filters.selectedId = null;
-  syncUrl();
-  render();
+  applyFilterChange();
   searchInput.focus();
 });
 [moderatorFilter, audienceFilter, propsFilter, furnitureFilter].forEach((select) => {
@@ -642,7 +505,7 @@ function collapseFilters(onComplete?: () => void): void {
   if (!onComplete) return;
 
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (!wasOpen || !mobileQuery.matches || reducedMotion) {
+  if (!wasOpen || resizablePanelsQuery.matches || reducedMotion) {
     requestAnimationFrame(onComplete);
     return;
   }
@@ -695,19 +558,15 @@ resizablePanelsQuery.addEventListener('change', ({ matches }) => {
 closeDetail.addEventListener('click', closeSelectedFormat);
 detailBackdrop.addEventListener('click', closeSelectedFormat);
 copyLink.addEventListener('click', () => void copyCurrentLink());
-document.addEventListener('keydown', trapDetailFocus);
-mobileQuery.addEventListener('change', syncDetailMode);
 window.addEventListener('popstate', () => {
   filters = readFiltersFromUrl(new URL(window.location.href));
   render();
-  syncDetailMode();
 });
 
 let cached = readCache();
 if (cached) {
   records = cached.records;
 }
-initializePanelResize();
+initializePanelResize(catalog, { filters: filtersResizeHandle, detail: detailResizeHandle });
 render();
-syncDetailMode();
 void loadFreshData();

@@ -145,7 +145,8 @@ export function writeCache(
   storage?: Pick<Storage, 'setItem'>,
 ): CachedFormats | null {
   try {
-    (storage ?? localStorage).setItem(CACHE_KEY, JSON.stringify(cached));
+    const records = cached.records.map(({ searchText: _search, furnitureKinds: _furniture, ...record }) => record);
+    (storage ?? localStorage).setItem(CACHE_KEY, JSON.stringify({ ...cached, records }));
     return cached;
   } catch {
     return null;

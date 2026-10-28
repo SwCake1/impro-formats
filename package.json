@@ -10,9 +10,11 @@
     "build:published": "node scripts/build-published.mjs",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:browser": "playwright test",
     "test:watch": "vitest"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "google-auth-library": "^11.3.1",
     "typescript": "^5.9.2",
     "vite": "^7.1.3",

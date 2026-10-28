@@ -1,4 +1,4 @@
-import { defineConfig } from 'vitest/config';
+import { configDefaults, defineConfig } from 'vitest/config';
 import { loadEnv } from 'vite';
 
 export default defineConfig(({ mode }) => ({
@@ -19,5 +19,6 @@ export default defineConfig(({ mode }) => ({
   },
   test: {
     environment: 'node',
+    exclude: [...configDefaults.exclude, 'tests/browser/**'],
   },
 }));

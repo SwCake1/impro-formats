@@ -226,6 +226,18 @@ describe('cache', () => {
     expect(readCache(target)).toEqual(cached);
   });
 
+  it('stores only source fields and rebuilds derived fields when reading old and compact caches', () => {
+    const target = storage();
+    const cached = cachedCatalog();
+    target.setItem('impro-formats:data:v3', JSON.stringify(cached));
+    expect(readCache(target)).toEqual(cached);
+    writeCache(cached, target);
+    const stored = JSON.parse(target.getItem('impro-formats:data:v3')!);
+    expect(stored.records[0]).not.toHaveProperty('searchText');
+    expect(stored.records[0]).not.toHaveProperty('furnitureKinds');
+    expect(readCache(target)).toEqual(cached);
+  });
+
   it('reuses a persisted ETag after a simulated page reload', async () => {
     const target = storage();
     writeCache(cachedCatalog(), target);
