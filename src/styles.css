@@ -631,6 +631,14 @@ body.is-resizing-panels {
     visibility: visible;
   }
 
+  .detail-panel__topline {
+    position: sticky;
+    z-index: 1;
+    top: 0;
+    width: max-content;
+    margin-left: auto;
+  }
+
   .detail-backdrop {
     position: fixed;
     z-index: 14;
