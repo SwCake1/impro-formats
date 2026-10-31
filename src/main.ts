@@ -1,9 +1,9 @@
 import { initializeAnalytics } from './analytics';
 import { initializePanelResize } from './panel-resize';
 import { createDetailDialog } from './detail-dialog';
-import { fetchFormats, readCache, writeCache } from './data';
+import { fetchFormats, normalizeText, readCache, writeCache } from './data';
 import { classificationOptions, countActiveFilters, DEFAULT_FILTERS, filterFormats } from './filters';
-import type { FilterState, FormatRecord, FurnitureFilter, OptionalBoolean, TriState } from './types';
+import type { FilterState, FormatRecord, FurnitureFilter, TriState } from './types';
 import { readFiltersFromUrl, writeFiltersToUrl } from './url-state';
 
 initializeAnalytics();
@@ -51,6 +51,7 @@ const detailContent = element<HTMLElement>('#detailContent');
 const detailTitle = element<HTMLElement>('#detailTitle');
 const detailTags = element<HTMLElement>('#detailTags');
 const detailDescription = element<HTMLElement>('#detailDescription');
+const detailRequirementsSection = element<HTMLElement>('#detailRequirementsSection');
 const detailRequirements = element<HTMLElement>('#detailRequirements');
 const detailNoteSection = element<HTMLElement>('#detailNoteSection');
 const detailNote = element<HTMLElement>('#detailNote');
@@ -288,21 +289,59 @@ function createFormatRow(record: FormatRecord): HTMLButtonElement {
   return button;
 }
 
-function booleanLabel(value: OptionalBoolean, positive: string, negative: string): string {
-  if (value === true) return positive;
-  if (value === false) return negative;
-  return 'Не указано';
-}
+const requirementIcons = {
+  moderator: [
+    'M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3Z',
+    'M5 10v1a7 7 0 0 0 14 0v-1M12 18v3M9 21h6',
+  ],
+  audience: [
+    'M15 7a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z',
+    'M6 18v-1a6 6 0 0 1 12 0v1M3 21h18',
+  ],
+  props: [
+    'm12 3 9 5-9 5-9-5 9-5Z',
+    'M3 8v9l9 5 9-5V8M12 13v9M7.5 5.5l9 5',
+  ],
+  furniture: [
+    'M7 12V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v7',
+    'M5 12h14v5H5zM7 17v4M17 17v4',
+  ],
+};
 
-function addRequirement(term: string, value: string, unknown = false): void {
-  const wrapper = document.createElement('div');
-  const dt = document.createElement('dt');
-  dt.textContent = term;
-  const dd = document.createElement('dd');
-  dd.textContent = value;
-  if (unknown) dd.classList.add('is-unknown');
-  wrapper.append(dt, dd);
-  detailRequirements.append(wrapper);
+function addRequirement(kind: keyof typeof requirementIcons, label: string, detail?: string): void {
+  const item = document.createElement('li');
+  const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  icon.classList.add('requirements__icon');
+  icon.setAttribute('viewBox', '0 0 24 24');
+  icon.setAttribute('width', '34');
+  icon.setAttribute('height', '34');
+  icon.setAttribute('fill', 'none');
+  icon.setAttribute('stroke', 'currentColor');
+  icon.setAttribute('stroke-width', '1.6');
+  icon.setAttribute('stroke-linecap', 'round');
+  icon.setAttribute('stroke-linejoin', 'round');
+  icon.setAttribute('aria-hidden', 'true');
+  icon.setAttribute('focusable', 'false');
+  requirementIcons[kind].forEach(d => {
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', d);
+    icon.append(path);
+  });
+
+  const content = document.createElement('span');
+  content.className = 'requirements__content';
+  const title = document.createElement('span');
+  title.className = 'requirements__label';
+  title.textContent = label;
+  content.append(title);
+  if (detail) {
+    const description = document.createElement('span');
+    description.className = 'requirements__detail';
+    description.textContent = detail;
+    content.append(description);
+  }
+  item.append(icon, content);
+  detailRequirements.append(item);
 }
 
 function findRecordById(id: string | null): FormatRecord | undefined {
@@ -327,10 +366,13 @@ function renderDetail(): void {
   record.collections.forEach((tag) => appendTag(detailTags, `Подборка: ${tag}`));
 
   detailRequirements.replaceChildren();
-  addRequirement('Модератор', booleanLabel(record.moderator, 'Нужен', 'Не нужен'), record.moderator === null);
-  addRequirement('Зритель на сцене', booleanLabel(record.audienceOnStage, 'Нужен', 'Не нужен'), record.audienceOnStage === null);
-  addRequirement('Реквизит', booleanLabel(record.props, 'Нужен', 'Не нужен'), record.props === null);
-  addRequirement('Мебель', record.furniture || 'Не указано', !record.furniture);
+  if (record.moderator === true) addRequirement('moderator', 'Модератор');
+  if (record.audienceOnStage === true) addRequirement('audience', 'Зритель на сцене');
+  if (record.props === true) addRequirement('props', 'Реквизит');
+  if (record.furniture && normalizeText(record.furniture) !== 'нет') {
+    addRequirement('furniture', 'Мебель', record.furniture);
+  }
+  detailRequirementsSection.hidden = detailRequirements.childElementCount === 0;
 
   detailNoteSection.hidden = !record.note;
   detailNote.textContent = record.note;

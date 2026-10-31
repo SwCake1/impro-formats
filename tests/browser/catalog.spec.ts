@@ -38,6 +38,53 @@ test('keeps a direct link during first load and opens the requested format', asy
   await expect(page).toHaveURL(/format=test-format/);
 });
 
+test('shows only explicit requirements with decorative icons', async ({ page }) => {
+  await page.goto('/?format=test-format');
+  const requirements = page.locator('#detailRequirements');
+  await expect(page.getByRole('heading', { name: 'Что понадобится' })).toBeVisible();
+  await expect(requirements.locator('.requirements__label')).toHaveText(['Реквизит', 'Мебель']);
+  await expect(requirements.locator('.requirements__detail')).toHaveText('Стулья');
+  await expect(requirements.locator('svg[aria-hidden="true"]')).toHaveCount(2);
+  await expect(requirements).not.toContainText(/Не нужен|Не указано/);
+});
+
+for (const [name, requirements] of Object.entries({
+  negative: { moderator: false, audienceOnStage: false, props: false, furniture: '  нЕТ  ' },
+  unknown: { moderator: null, audienceOnStage: null, props: null, furniture: '' },
+})) {
+  test(`hides the whole requirements section when all values are ${name}`, async ({ page }) => {
+    await page.route('**/data/formats.json', route => route.fulfill({
+      json: { ...catalog, records: [{ ...record, ...requirements }] },
+    }));
+    await page.goto('/?format=test-format');
+    await expect(page.locator('#detailContent')).toBeVisible();
+    await expect(page.locator('#detailRequirementsSection')).toBeHidden();
+    await expect(page.getByRole('heading', { name: 'Что понадобится' })).toBeHidden();
+    await expect(page.locator('#detailRequirements li')).toHaveCount(0);
+  });
+}
+
+test('updates requirements when switching between formats with and without them', async ({ page }) => {
+  await page.route('**/data/formats.json', route => route.fulfill({
+    json: { ...catalog, records: [
+      { ...record, moderator: true, audienceOnStage: true, furniture: 'Столы, Стулья' },
+      { ...catalog.records[1], props: false, furniture: 'Нет' },
+    ] },
+  }));
+  await page.goto('/?format=test-format');
+  const requirements = page.locator('#detailRequirements .requirements__label');
+  await expect(requirements).toHaveText(['Модератор', 'Зритель на сцене', 'Реквизит', 'Мебель']);
+  await expect(page.locator('#detailRequirements .requirements__detail')).toHaveText('Столы, Стулья');
+  await page.locator('#closeDetail').click();
+  await page.locator('[data-id="second-format"]').click();
+  await expect(page.locator('#detailTitle')).toHaveText('Другой формат');
+  await expect(page.locator('#detailRequirementsSection')).toBeHidden();
+  await page.locator('#closeDetail').click();
+  await page.locator('[data-id="test-format"]').click();
+  await expect(page.locator('#detailRequirementsSection')).toBeVisible();
+  await expect(requirements).toHaveCount(4);
+});
+
 test('waits for fresh data when a direct link is missing from the old cache', async ({ page }) => {
   await page.addInitScript(cached => {
     localStorage.setItem('impro-formats:data:v3', JSON.stringify(cached));
