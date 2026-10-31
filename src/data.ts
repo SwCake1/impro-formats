@@ -1,7 +1,10 @@
 import { DATA_URL, LEGACY_FORM_TAGS, LEGACY_COLLECTION_TAGS } from './config';
 import type { CachedFormats, FormatRecord, OptionalBoolean } from './types';
 
-const CACHE_KEY = 'impro-formats:data:v3';
+// Рабочие правки, опубликованный лист и файл не подменяют кэш друг друга.
+const source = import.meta.env.CATALOG_SOURCE;
+const CACHE_KEY = source === 'working' || source === 'published'
+  ? `impro-formats:data:v3:${source}` : 'impro-formats:data:v3';
 
 export class CatalogFormatError extends Error {
   constructor(message: string) {
@@ -125,7 +128,7 @@ export async function fetchFormats(
 export function readCache(storage?: Pick<Storage, 'getItem'>): CachedFormats | null {
   try {
     const target = storage ?? localStorage;
-    const raw = target.getItem(CACHE_KEY) ?? target.getItem('impro-formats:data:v2');
+    const raw = target.getItem(CACHE_KEY) ?? (source === 'file' ? target.getItem('impro-formats:data:v2') : null);
     if (!raw) return null;
     const parsed = object(JSON.parse(raw));
     if (![2, 3].includes(parsed.schemaVersion as number) || !isTimestamp(parsed.fetchedAt)) return null;

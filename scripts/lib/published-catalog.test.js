@@ -14,7 +14,7 @@ vi.mock('google-auth-library', () => ({
 }));
 
 import {
-  CatalogImportError, credentialsFromEnvironment, fetchPublishedCatalog,
+  CatalogImportError, credentialsFromEnvironment, fetchPublishedCatalog, fetchSheetCatalog,
   loadPublishedCatalog, parsePublishedRows,
 } from './published-catalog.mjs';
 
@@ -90,9 +90,41 @@ describe('published catalog validation', () => {
 });
 
 describe('Google credentials and published sheet access', () => {
+  it('reads current working values with the same read-only scope and preserves sheet IDs', async () => {
+    request.mockResolvedValue({ data: { values: [headers, row] } });
+    const catalog = await fetchSheetCatalog({ credentials, spreadsheetId: 'sheet-id', sheetName: 'Все форматы' });
+    expect(catalog.records[0].id).toBe(row[0]);
+    expect(constructor).toHaveBeenCalledWith(expect.objectContaining({
+      scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
+    }));
+    expect(request).toHaveBeenCalledWith(expect.objectContaining({
+      url: 'https://sheets.googleapis.com/v4/spreadsheets/sheet-id/values/' + encodeURIComponent("'Все форматы'!A1:K"),
+      method: 'GET',
+    }));
+  });
+
+  it('requires permanent IDs in working rows without inventing or writing IDs', async () => {
+    request.mockResolvedValue({ data: { values: [headers, ['', ...row.slice(1)]] } });
+    await expect(fetchSheetCatalog({ credentials, spreadsheetId: 'sheet-id', sheetName: 'Все форматы' }))
+      .rejects.toThrow('Строка 2: отсутствует постоянный id');
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(request.mock.calls[0][0].method).toBe('GET');
+  });
+
+  it('names the working sheet in validation errors', () => {
+    expect(() => parsePublishedRows([], 'Все форматы')).toThrow('На листе «Все форматы» изменились колонки');
+    expect(() => parsePublishedRows([headers], 'Все форматы')).toThrow('На листе «Все форматы» нет форматов');
+  });
+
+  it('rejects an unexpected sheet before any API request', async () => {
+    await expect(fetchSheetCatalog({ credentials, spreadsheetId: 'sheet-id', sheetName: 'private' }))
+      .rejects.toThrow('Выбери лист');
+    expect(request).not.toHaveBeenCalled();
+  });
+
   it('reads only the approved sheet with a read-only scope', async () => {
     request.mockResolvedValue({ data: { values: [headers, row] } });
-    const catalog = await fetchPublishedCatalog({ credentials, spreadsheetId: 'sheet-id' });
+    const catalog = await fetchPublishedCatalog({ credentials, spreadsheetId: 'sheet-id', sheetName: 'Все форматы' });
     expect(constructor).toHaveBeenCalledWith({
       email: credentials.client_email, key: credentials.private_key,
       scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],

@@ -42,13 +42,13 @@ export async function credentialsFromEnvironment(env) {
   throw new CatalogImportError('Задай GOOGLE_SERVICE_ACCOUNT_JSON или GOOGLE_APPLICATION_CREDENTIALS.');
 }
 
-export function parsePublishedRows(rows) {
+export function parsePublishedRows(rows, sheetName = 'Опубликовано') {
   const matches = (headers) => Array.isArray(rows) && Array.isArray(rows[0]) &&
     headers.every((header, index) => String(rows[0][index] ?? '').trim() === header);
   const legacy = !matches(HEADERS) && matches(LEGACY_HEADERS);
   const headers = legacy ? LEGACY_HEADERS : HEADERS;
   if (!matches(headers)) {
-    throw new CatalogImportError('На листе «Опубликовано» изменились колонки A–K.');
+    throw new CatalogImportError(`На листе «${sheetName}» изменились колонки A–K.`);
   }
 
   const ids = new Set();
@@ -59,6 +59,9 @@ export function parsePublishedRows(rows) {
     if (cells.every(value => value === '')) return;
     const [id, title, description, moderator, audience, props, furniture, note, forms, features, collections] = cells;
     const rowNumber = index + 2;
+    if (!id && title && sheetName === 'Все форматы') {
+      throw new CatalogImportError(`Строка ${rowNumber}: отсутствует постоянный id. Выполни Publish в таблице, чтобы закрепить id новой записи.`);
+    }
     if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id) || ids.has(id) || !title) {
       throw new CatalogImportError(`Строка ${rowNumber}: проверь уникальный id и название.`);
     }
@@ -83,11 +86,16 @@ export function parsePublishedRows(rows) {
       }),
     });
   });
-  if (records.length === 0) throw new CatalogImportError('Снимок пуст. Сначала выполни Publish в таблице.');
+  if (records.length === 0) throw new CatalogImportError(sheetName === 'Опубликовано'
+    ? 'Снимок пуст. Сначала выполни Publish в таблице.'
+    : `На листе «${sheetName}» нет форматов.`);
   return { schemaVersion: legacy ? 2 : 3, generatedAt: new Date().toISOString(), records };
 }
 
-export async function fetchPublishedCatalog({ credentials, spreadsheetId }) {
+export async function fetchSheetCatalog({ credentials, spreadsheetId, sheetName }) {
+  if (!['Все форматы', 'Опубликовано'].includes(sheetName)) {
+    throw new CatalogImportError('Выбери лист «Все форматы» или «Опубликовано».');
+  }
   if (typeof spreadsheetId !== 'string' || !/^[a-zA-Z0-9_-]+$/.test(spreadsheetId)) {
     throw new CatalogImportError('Укажи корректный GOOGLE_SHEET_ID.');
   }
@@ -98,7 +106,7 @@ export async function fetchPublishedCatalog({ credentials, spreadsheetId }) {
       key: credentials.private_key,
       scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
     });
-    const range = encodeURIComponent("'Опубликовано'!A1:K");
+    const range = encodeURIComponent(`'${sheetName}'!A1:K`);
     response = await client.request({
       url: `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}`,
       method: 'GET',
@@ -113,10 +121,18 @@ export async function fetchPublishedCatalog({ credentials, spreadsheetId }) {
       ? `Google отклонил запрос (HTTP ${status}). Проверь API и доступ аккаунта к таблице.`
       : 'Не удалось соединиться с Google или получить доступ. Проверь сеть и ключ.');
   }
-  return parsePublishedRows(response.data?.values);
+  return parsePublishedRows(response.data?.values, sheetName);
+}
+
+export async function fetchPublishedCatalog(options) {
+  return fetchSheetCatalog({ ...options, sheetName: 'Опубликовано' });
+}
+
+export async function loadSheetCatalog(env, sheetName) {
+  const credentials = await credentialsFromEnvironment(env);
+  return fetchSheetCatalog({ credentials, spreadsheetId: env.GOOGLE_SHEET_ID, sheetName });
 }
 
 export async function loadPublishedCatalog(env) {
-  const credentials = await credentialsFromEnvironment(env);
-  return fetchPublishedCatalog({ credentials, spreadsheetId: env.GOOGLE_SHEET_ID });
+  return loadSheetCatalog(env, 'Опубликовано');
 }

@@ -6,6 +6,8 @@
   "scripts": {
     "check:sheets": "node scripts/check-sheets-access.mjs",
     "dev": "vite",
+    "dev:cached": "vite --mode cached",
+    "dev:published": "vite --mode published",
     "build": "tsc -b && vite build",
     "build:published": "node scripts/build-published.mjs",
     "preview": "vite preview",
