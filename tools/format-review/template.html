@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="referrer" content="no-referrer">
+  <title>Ревью форматов · Что сыграем?</title>
+  <style>/* @@REVIEW_STYLES@@ */</style>
+</head>
+<body>
+  <header id="top" class="masthead shell">
+    <a class="brand" href="#top" aria-label="Что сыграем?"><span class="brand-mark" aria-hidden="true">*</span><span class="brand-name">Что сыграем?</span></a>
+    <h1 id="batch-title">Находки для каталога</h1>
+    <span class="batch-total">Форматов: <span id="batch-size">0</span></span>
+  </header>
+  <main class="shell">
+    <div class="review-actions" role="group" aria-label="Действия со всеми форматами">
+      <div class="action-group">
+        <button id="select-all" type="button" class="batch-action">Выделить все</button>
+        <button id="clear-selection" type="button" class="batch-action">Убрать все выделения</button>
+      </div>
+      <div class="action-group">
+        <button id="expand-all" type="button" class="batch-action">Развернуть всё</button>
+        <button id="collapse-all" type="button" class="batch-action">Свернуть всё</button>
+      </div>
+    </div>
+    <p id="empty" class="empty" hidden>В этой подборке пока нет форматов.</p>
+    <div id="candidates" class="candidates"></div>
+    <noscript><p class="empty">Для редактирования и выбора форматов включите JavaScript в браузере.</p></noscript>
+  </main>
+  <footer class="export-bar">
+    <div class="shell export-inner">
+      <strong id="selection-count">Выбрано: 0</strong>
+      <div class="export-actions">
+        <button id="copy-agent" class="button secondary" disabled>Скопировать для агента</button>
+        <button id="copy-sheet" class="button primary" disabled>Скопировать новые для таблицы (0)</button>
+      </div>
+    </div>
+    <p id="status" class="shell status" role="status" aria-live="polite"></p>
+  </footer>
+  <dialog id="manual-copy" aria-labelledby="manual-title" aria-describedby="manual-help">
+    <div class="dialog-header"><h2 id="manual-title">Ручное копирование</h2><button id="close-manual" class="close-button" aria-label="Закрыть">×</button></div>
+    <p id="manual-help">Браузер не разрешил автоматическое копирование. Скопируйте выделенный текст вручную.</p>
+    <label for="manual-text">Данные для ручного копирования</label>
+    <textarea id="manual-text" rows="12" readonly spellcheck="false"></textarea>
+    <p id="manual-tip" class="muted"></p>
+  </dialog>
+  <script id="review-data" type="application/json">@@REVIEW_DATA@@</script>
+  <script type="module">/* @@REVIEW_CODE@@ */</script>
+</body>
+</html>

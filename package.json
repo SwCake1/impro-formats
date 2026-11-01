@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "review:generate": "node scripts/generate-format-review.mjs",
     "check:sheets": "node scripts/check-sheets-access.mjs",
     "dev": "vite",
     "dev:cached": "vite --mode cached",
