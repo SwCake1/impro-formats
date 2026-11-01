@@ -55,6 +55,8 @@ const detailRequirementsSection = element<HTMLElement>('#detailRequirementsSecti
 const detailRequirements = element<HTMLElement>('#detailRequirements');
 const detailNoteSection = element<HTMLElement>('#detailNoteSection');
 const detailNote = element<HTMLElement>('#detailNote');
+const detailVideoSection = element<HTMLElement>('#detailVideoSection');
+const detailVideo = element<HTMLElement>('#detailVideo');
 const closeDetail = element<HTMLButtonElement>('#closeDetail');
 const copyLink = element<HTMLButtonElement>('#copyLink');
 const toast = element<HTMLElement>('#toast');
@@ -348,6 +350,35 @@ function findRecordById(id: string | null): FormatRecord | undefined {
   return records.find((record) => record.id === id);
 }
 
+function renderVideo(text: string): void {
+  detailVideoSection.hidden = !text;
+  detailVideo.replaceChildren();
+  let offset = 0;
+  for (const match of text.matchAll(/\b(?:https?:\/\/|www\.)[^\s<>"']+/gi)) {
+    // Пунктуация вокруг ссылки остаётся частью исходного текста.
+    let label = match[0].replace(/[.,;:!?]+$/, '');
+    const brackets = [['(', ')'], ['[', ']'], ['{', '}']] as const;
+    while (brackets.some(([open, close]) => label.endsWith(close) &&
+      label.split(close).length > label.split(open).length)) {
+      label = label.slice(0, -1).replace(/[.,;:!?]+$/, '');
+    }
+    let url: URL;
+    try {
+      url = new URL(/^www\./i.test(label) ? `https://${label}` : label);
+    } catch {
+      continue;
+    }
+    const link = document.createElement('a');
+    link.textContent = label;
+    link.href = url.href;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    detailVideo.append(text.slice(offset, match.index), link);
+    offset = match.index + label.length;
+  }
+  detailVideo.append(text.slice(offset));
+}
+
 function renderDetail(): void {
   const record = findRecordById(filters.selectedId);
   if (!record) {
@@ -376,6 +407,7 @@ function renderDetail(): void {
 
   detailNoteSection.hidden = !record.note;
   detailNote.textContent = record.note;
+  renderVideo(record.video);
 
   detailDialog.sync(true, () => formatButton(record.id));
 }

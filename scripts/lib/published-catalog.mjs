@@ -50,12 +50,18 @@ export function parsePublishedRows(rows, sheetName = 'Опубликовано')
   if (!matches(headers)) {
     throw new CatalogImportError(`На листе «${sheetName}» изменились колонки A–K.`);
   }
+  const videoHeader = legacy ? '' : String(rows[0][11] ?? '').trim();
+  if (videoHeader && videoHeader !== 'Видео') {
+    throw new CatalogImportError(`На листе «${sheetName}» в колонке L ожидается «Видео».`);
+  }
+  const hasVideo = videoHeader === 'Видео';
 
   const ids = new Set();
   const records = [];
   rows.slice(1).forEach((row, index) => {
     if (!Array.isArray(row)) throw new CatalogImportError('Некорректная строка снимка.');
-    const cells = headers.map((_, column) => String(row[column] ?? '').trim());
+    const cells = (hasVideo ? [...headers, 'Видео'] : headers)
+      .map((_, column) => String(row[column] ?? '').trim());
     if (cells.every(value => value === '')) return;
     const [id, title, description, moderator, audience, props, furniture, note, forms, features, collections] = cells;
     const rowNumber = index + 2;
@@ -83,6 +89,7 @@ export function parsePublishedRows(rows, sheetName = 'Опубликовано')
       furniture, note,
       ...(legacy ? { tags: list(forms) } : {
         forms: list(forms), features: list(features), collections: list(collections),
+        video: hasVideo ? cells[11] : '',
       }),
     });
   });
@@ -106,7 +113,7 @@ export async function fetchSheetCatalog({ credentials, spreadsheetId, sheetName 
       key: credentials.private_key,
       scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
     });
-    const range = encodeURIComponent(`'${sheetName}'!A1:K`);
+    const range = encodeURIComponent(`'${sheetName}'!A1:L`);
     response = await client.request({
       url: `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}`,
       method: 'GET',

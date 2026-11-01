@@ -441,6 +441,15 @@ body.is-resizing-panels {
 
 .detail-description { font-size: 15px; }
 
+.detail-video {
+  overflow-wrap: anywhere;
+}
+
+.detail-video a {
+  color: var(--accent-strong);
+  text-underline-offset: 3px;
+}
+
 .requirements {
   display: grid;
   margin: 0;

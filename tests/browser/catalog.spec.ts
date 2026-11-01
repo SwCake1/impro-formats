@@ -48,6 +48,67 @@ test('shows only explicit requirements with decorative icons', async ({ page }) 
   await expect(requirements).not.toContainText(/Не нужен|Не указано/);
 });
 
+test('preserves video text, links URLs and opens them by keyboard in a new tab', async ({ page, context }) => {
+  const video = 'Показ: https://example.test/watch?v=1&lang=ru.\nРепетиция (https://example.test/clip_(part)).\nwww.example.test/video';
+  await context.route('https://example.test/**', route => route.fulfill({
+    contentType: 'text/html', body: '<title>Видео</title>',
+  }));
+  await page.route('**/data/formats.json', route => route.fulfill({
+    json: { ...catalog, records: [{ ...record, video }] },
+  }));
+  await page.goto('/?format=test-format');
+  const section = page.locator('#detailVideoSection');
+  const text = page.locator('#detailVideo');
+  const links = section.getByRole('link');
+  await expect(section).toBeVisible();
+  await expect(section.getByRole('heading', { name: 'Видео' })).toBeVisible();
+  await expect(text).toHaveJSProperty('textContent', video);
+  await expect(links).toHaveText([
+    'https://example.test/watch?v=1&lang=ru',
+    'https://example.test/clip_(part)',
+    'www.example.test/video',
+  ]);
+  await expect(links.nth(2)).toHaveAttribute('href', 'https://www.example.test/video');
+  for (const link of await links.all()) {
+    await expect(link).toHaveAttribute('target', '_blank');
+    await expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+  }
+  expect(await text.evaluate(node => node.scrollWidth <= node.clientWidth)).toBe(true);
+  await links.first().focus();
+  const opened = page.waitForEvent('popup');
+  await page.keyboard.press('Enter');
+  const popup = await opened;
+  await expect(popup).toHaveURL('https://example.test/watch?v=1&lang=ru');
+  await popup.close();
+  await expect(page).toHaveURL(/format=test-format/);
+});
+
+test('hides empty video fields and clears links when selecting another format', async ({ page }) => {
+  await page.route('**/data/formats.json', route => route.fulfill({
+    json: { ...catalog, records: [{ ...record, video: 'https://example.test/video' }, catalog.records[1]] },
+  }));
+  await page.goto('/?format=test-format');
+  await expect(page.locator('#detailVideoSection')).toBeVisible();
+  await page.locator('#closeDetail').click();
+  await page.locator('[data-id="second-format"]').click();
+  await expect(page.locator('#detailVideoSection')).toBeHidden();
+  await expect(page.locator('#detailVideo a')).toHaveCount(0);
+  await page.locator('#closeDetail').click();
+  await page.locator('[data-id="test-format"]').click();
+  await expect(page.locator('#detailVideo a')).toHaveCount(1);
+});
+
+test('renders video notes, markup and unsupported URLs as plain text', async ({ page }) => {
+  const video = 'Видео ещё в монтаже\n<img src=x onerror="alert(1)">\njavascript:alert(1)\ndata:text/html,<script>alert(1)</script>\nhttps://';
+  await page.route('**/data/formats.json', route => route.fulfill({
+    json: { ...catalog, records: [{ ...record, video }] },
+  }));
+  await page.goto('/?format=test-format');
+  await expect(page.locator('#detailVideoSection')).toBeVisible();
+  await expect(page.locator('#detailVideo')).toHaveJSProperty('textContent', video);
+  await expect(page.locator('#detailVideo').locator('a, img, script')).toHaveCount(0);
+});
+
 for (const [name, requirements] of Object.entries({
   negative: { moderator: false, audienceOnStage: false, props: false, furniture: '  нЕТ  ' },
   unknown: { moderator: null, audienceOnStage: null, props: null, furniture: '' },

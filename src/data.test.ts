@@ -34,6 +34,13 @@ afterEach(() => {
 });
 
 describe('parseFormatsJson', () => {
+  it('preserves video text and accepts older records without it', () => {
+    const video = 'Пример: https://example.test/watch?v=1\nРепетиция: https://example.test/rehearsal';
+    const [record] = parseFormatsJson(catalog([{ ...rawRecord, video: `  ${video}  ` }]));
+    expect(record.video).toBe(video);
+    expect(parseFormatsJson(catalog())[0].video).toBe('');
+  });
+
   it('keeps the three classifications independent in schema v3', () => {
     const { tags: _tags, ...base } = rawRecord;
     const [record] = parseFormatsJson({ ...catalog(), schemaVersion: 3, records: [{
@@ -104,6 +111,8 @@ describe('parseFormatsJson', () => {
     { ...rawRecord, title: '' },
     { ...rawRecord, props: 'FALSE' },
     { ...rawRecord, tags: 'Короткая форма' },
+    { ...rawRecord, video: ['https://example.test/watch'] },
+    { ...rawRecord, video: null },
   ])('rejects malformed records: %j', (record) => {
     expect(() => parseFormatsJson(catalog([record]))).toThrow(CatalogFormatError);
   });
@@ -247,6 +256,14 @@ describe('cache', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response));
     expect(await fetchFormats(undefined, restored)).toBe(restored);
     expect(json).not.toHaveBeenCalled();
+  });
+
+  it('preserves video text through a cache write and reload', () => {
+    const target = storage();
+    const cached = cachedCatalog();
+    cached.records[0].video = 'Название: https://example.test/watch?v=1\nhttps://example.test/second';
+    writeCache(cached, target);
+    expect(readCache(target)?.records[0].video).toBe(cached.records[0].video);
   });
 
   it('accepts an existing v2 cache without an ETag', () => {

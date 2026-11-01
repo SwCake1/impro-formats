@@ -12,6 +12,7 @@ export interface FormatRecord {
   furniture: string;
   furnitureKinds: Array<'chairs' | 'tables'>;
   note: string;
+  video: string;
   forms: string[];
   features: string[];
   collections: string[];

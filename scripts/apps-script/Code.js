@@ -12,6 +12,7 @@ const CATALOG_HEADERS = [
   'Форма',
   'Особенности',
   'Подборки',
+  'Видео',
 ];
 
 function onOpen() {
@@ -116,6 +117,7 @@ function snapshotRows_(records) {
     flag(record.moderator), flag(record.audienceOnStage), flag(record.props),
     record.furniture, record.note,
     record.forms.join(', '), record.features.join(', '), record.collections.join(', '),
+    record.video,
   ])];
 }
 
@@ -162,7 +164,7 @@ function formatIdBase_(title) {
 function parseFormatRows_(rows) {
   const headers = rows[0] || [];
   if (!CATALOG_HEADERS.every((header, index) => String(headers[index] || '').trim() === header)) {
-    throw new Error('Изменились заголовки или порядок колонок A–K.');
+    throw new Error('Изменились заголовки или порядок колонок A–L.');
   }
 
   const seenIds = new Set();
@@ -172,7 +174,7 @@ function parseFormatRows_(rows) {
     if (cells.every((cell) => cell === '')) return;
 
     const rowNumber = index + 2;
-    const [id, title, description, moderator, audience, props, furniture, note, forms, features, collections] = cells;
+    const [id, title, description, moderator, audience, props, furniture, note, forms, features, collections, video] = cells;
     if (!title) throw new Error('Строка ' + rowNumber + ': отсутствует название.');
     if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id)) {
       throw new Error('Строка ' + rowNumber + ': отсутствует или некорректен id.');
@@ -189,6 +191,7 @@ function parseFormatRows_(rows) {
       props: parseCatalogFlag_(props, rowNumber, 'реквизит'),
       furniture,
       note,
+      video,
       forms: parseCatalogList_(forms),
       features: parseCatalogList_(features),
       collections: parseCatalogList_(collections),

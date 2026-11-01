@@ -72,6 +72,8 @@ function parseRecords(value: unknown, legacy = false): FormatRecord[] {
 
     const description = text('description');
     const note = text('note');
+    // Старые снимки и кэши ещё не содержат колонку «Видео».
+    const video = row.video === undefined ? '' : text('video');
     const furniture = text('furniture');
     const normalizedFurniture = normalizeText(furniture);
     const furnitureKinds: FormatRecord['furnitureKinds'] = [];
@@ -88,6 +90,7 @@ function parseRecords(value: unknown, legacy = false): FormatRecord[] {
       furniture,
       furnitureKinds,
       note,
+      video,
       forms: legacy ? tags.filter(isForm) : list('forms'),
       features: legacy ? tags.filter((tag) => !isForm(tag) && !isCollection(tag)) : list('features'),
       collections: legacy ? tags.filter(isCollection) : list('collections'),

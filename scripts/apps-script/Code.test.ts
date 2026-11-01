@@ -3,11 +3,12 @@ import { Script } from 'node:vm';
 import { describe, expect, it, vi } from 'vitest';
 import snapshot from '../../public/data/formats.json';
 import { parseFormatsJson } from '../../src/data';
+import { parsePublishedRows } from '../lib/published-catalog.mjs';
 
 const headers = [
   'id', 'Название формата', 'Описание формата', 'Наличие модератора',
   'Наличие зрителя на сцене', 'Наличие реквизита', 'Наличие мебели',
-  'Дополнительно', 'Форма', 'Особенности', 'Подборки',
+  'Дополнительно', 'Форма', 'Особенности', 'Подборки', 'Видео',
 ];
 const source = readFileSync(new URL('./Code.js', import.meta.url), 'utf8');
 const script = new Script(source + '\nJSON.stringify(parseFormatRows_(inputRows));');
@@ -16,7 +17,7 @@ const fromRows = (rows: string[][]) => ({
   generatedAt: '2026-10-24T00:00:00.000Z',
   records: JSON.parse(script.runInNewContext({ inputRows: rows })),
 });
-const row = ['2-komnaty', '2 комнаты', 'Первая строка\nВторая строка', 'TRUE', 'FALSE', '', 'Стулья', '', 'Короткая форма', 'Угадайки', 'JAM, Иностранные'];
+const row = ['2-komnaty', '2 комнаты', 'Первая строка\nВторая строка', 'TRUE', 'FALSE', '', 'Стулья', '', 'Короткая форма', 'Угадайки', 'JAM, Иностранные', ''];
 
 describe('readable IDs', () => {
   const idScript = new Script(source + '\nformatIdBase_(inputTitle);');
@@ -56,7 +57,7 @@ describe('Apps Script format validation', () => {
   });
 
   it('preserves unknown flags and multiline text, and excludes extra columns', () => {
-    const catalog = fromRows([headers, [...row, 'Служебные данные'], Array(11).fill('')]);
+    const catalog = fromRows([headers, [...row, 'Служебные данные'], Array(12).fill('')]);
 
     expect(catalog.records).toHaveLength(1);
     expect(catalog.records[0]).toMatchObject({
@@ -94,7 +95,7 @@ describe('Apps Script format validation', () => {
   });
 
   it('rejects an empty catalog', () => {
-    expect(() => fromRows([headers, Array(11).fill('')])).toThrow('нет форматов');
+    expect(() => fromRows([headers, Array(12).fill('')])).toThrow('нет форматов');
   });
 });
 
@@ -175,9 +176,9 @@ describe('Apps Script Publish', () => {
   }
 
   it('assigns readable IDs only to new named rows, persisting them before publishing', () => {
-    const first = ['', 'Новый формат', ...row.slice(2), 'Видео остаётся в рабочем листе'];
+    const first = ['', 'Новый формат', ...row.slice(2), 'Служебные данные остаются в рабочем листе'];
     const second = ['', 'Другой формат', ...row.slice(2)];
-    const empty = Array(11).fill('');
+    const empty = Array(12).fill('');
     const draft = [headers, [...row], empty, first, second];
     const original = draft.map(value => [...value]);
     const state = environment(draft);
@@ -209,7 +210,7 @@ describe('Apps Script Publish', () => {
   });
 
   it('never rewrites existing IDs or assigns IDs to blank rows', () => {
-    const empty = Array(11).fill('');
+    const empty = Array(12).fill('');
     const state = environment([headers, [...row], empty]);
     state.run();
     expect(state.idWrite).not.toHaveBeenCalled();
@@ -386,6 +387,18 @@ describe('Apps Script Publish', () => {
     expect(state.lock.releaseLock).toHaveBeenCalledTimes(1);
   });
 
+  it('publishes multiline video text through the snapshot and JSON import without modifying the draft', () => {
+    const video = 'Пример: https://example.test/watch?v=1\nhttps://example.test/rehearsal';
+    const draft = [headers, [...row.slice(0, 11), video]];
+    const original = draft.map(value => [...value]);
+    const state = environment(draft);
+    state.run();
+    expect(draft).toEqual(original);
+    expect(state.values()[0][11]).toBe('Видео');
+    expect(state.values()[1][11]).toBe(video);
+    expect(parseFormatsJson(parsePublishedRows(state.values()))[0].video).toBe(video);
+  });
+
   it('posts the saved snapshot to the configured hook only after flushing Sheets', () => {
     const state = environment([headers, row]);
     state.rejectDeploy(201);
@@ -440,7 +453,7 @@ describe('Apps Script Publish', () => {
 
     draft.pop();
     expect(state.run()).toBe(1);
-    expect(state.values()[2]).toEqual(Array(11).fill(''));
+    expect(state.values()[2]).toEqual(Array(12).fill(''));
     expect(fromRows(state.values()).records).toHaveLength(1);
   });
 

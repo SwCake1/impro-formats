@@ -34,20 +34,30 @@ afterEach(async () => {
 });
 
 describe('published catalog validation', () => {
-  it('imports separate A–K classifications as schema v3 and excludes videos', () => {
+  it('imports A–L classifications and video text as schema v3', () => {
     const currentHeaders = [...headers.slice(0, 8), 'Форма', 'Особенности', 'Подборки', 'Видео'];
-    const currentRow = [...row.slice(0, 8), 'Короткая форма, Длинная форма', 'Музыкальные', 'JAM, Иностранные, JAM', 'private-video'];
+    const video = 'Пример: https://example.test/watch?v=1\nРепетиция: https://example.test/rehearsal';
+    const currentRow = [...row.slice(0, 8), 'Короткая форма, Длинная форма', 'Музыкальные', 'JAM, Иностранные, JAM', video, 'Служебные данные'];
     const catalog = parsePublishedRows([currentHeaders, currentRow]);
     expect(catalog.schemaVersion).toBe(3);
     expect(catalog.records[0]).toMatchObject({ forms: ['Короткая форма', 'Длинная форма'], features: ['Музыкальные'], collections: ['JAM', 'Иностранные'] });
     expect(catalog.records[0]).not.toHaveProperty('tags');
-    expect(JSON.stringify(catalog)).not.toContain('private-video');
+    expect(catalog.records[0].video).toBe(video);
+    expect(JSON.stringify(catalog)).not.toContain('Служебные данные');
     expect(parseFormatsJson(catalog)[0].collections).toEqual(['JAM', 'Иностранные']);
+    expect(parseFormatsJson(catalog)[0].video).toBe(video);
   });
 
   it('preserves blank form and feature cells as empty lists', () => {
     const catalog = parsePublishedRows([[...headers.slice(0, 8), 'Форма', 'Особенности', 'Подборки'], [...row.slice(0, 8), '', '', 'JAM']]);
-    expect(catalog.records[0]).toMatchObject({ forms: [], features: [], collections: ['JAM'] });
+    expect(catalog.records[0]).toMatchObject({ forms: [], features: [], collections: ['JAM'], video: '' });
+  });
+
+  it('rejects an unexpected column L header instead of importing the wrong text as video', () => {
+    expect(() => parsePublishedRows([
+      [...headers.slice(0, 8), 'Форма', 'Особенности', 'Подборки', 'Служебные данные'],
+      [...row.slice(0, 8), '', '', '', 'private'],
+    ])).toThrow('в колонке L ожидается «Видео»');
   });
   it('creates exactly the public schema consumed by the site for all snapshot records', () => {
     const flag = value => value === null ? '' : String(value).toUpperCase();
@@ -98,7 +108,7 @@ describe('Google credentials and published sheet access', () => {
       scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
     }));
     expect(request).toHaveBeenCalledWith(expect.objectContaining({
-      url: 'https://sheets.googleapis.com/v4/spreadsheets/sheet-id/values/' + encodeURIComponent("'Все форматы'!A1:K"),
+      url: 'https://sheets.googleapis.com/v4/spreadsheets/sheet-id/values/' + encodeURIComponent("'Все форматы'!A1:L"),
       method: 'GET',
     }));
   });
@@ -130,7 +140,7 @@ describe('Google credentials and published sheet access', () => {
       scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
     });
     expect(request).toHaveBeenCalledWith(expect.objectContaining({
-      url: 'https://sheets.googleapis.com/v4/spreadsheets/sheet-id/values/' + encodeURIComponent("'Опубликовано'!A1:K"),
+      url: 'https://sheets.googleapis.com/v4/spreadsheets/sheet-id/values/' + encodeURIComponent("'Опубликовано'!A1:L"),
       method: 'GET', params: { valueRenderOption: 'FORMATTED_VALUE' },
     }));
     expect(JSON.stringify(catalog)).not.toContain(credentials.private_key);
