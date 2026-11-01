@@ -1,0 +1,4 @@
+interface:
+  display_name: "Import Formats"
+  short_description: "Collect formats and prepare an HTML review"
+  default_prompt: "Use $import-formats to collect formats from the specified source and prepare an HTML review."
