@@ -9,3 +9,5 @@
     - https://vk.ru/@improvisationtnt-formaty-improvizacionnyh-igr
 - Сделать что бы подгрузка UI была до кеширования таблички
 - SEO
+- Предложение форматов
+- Добавить свои тулы
