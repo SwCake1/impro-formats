@@ -5,13 +5,15 @@ description: Collect improv formats from a source, compare them with the Impro F
 
 # Import Formats
 
-Work in the Impro Formats project. Locate its root through this skill's real path under `.agents/skills/import-formats/`. The [tool documentation](../../../docs/format-review.md) defines the data contract; the [example batch](../../../tools/format-review/example-batch.json) shows the input. Use the existing template and generator.
+Work in the Impro Formats project. Locate its root through this skill's real path under `.agents/skills/import-formats/`. The [tool documentation](../../../docs/format-review.md) defines the data contract; the [example batch](../../../tools/format-review/example-recommendations.json) shows the input. Use the existing template and generator.
 
 ## Prepare a review
 
-Collect candidates from the supplied source and compare their meaning with the current working sheet, `Все форматы`. Preserve verbatim source text and links. You may structure descriptions, but do not invent rules or unknown attributes. State any limits on coverage or data freshness.
+Collect candidates from the supplied source and compare their meaning with the current working sheet, `Все форматы`. Preserve verbatim source text and links. You may structure descriptions, but do not invent rules. Infer moderator, on-stage audience, props, and furniture requirements from the described mechanics, even without explicit requirement fields: use false and furniture "Нет" when clearly unnecessary; leave genuinely ambiguous requirements unknown. Never add overall format or round duration to `note`, including update proposals. Preserve timing that defines the game mechanics in the description, and keep source text and catalog snapshots verbatim. State any limits on coverage or data freshness.
 
 For plausible matches, include the existing format's complete snapshot, permanent ID, videos, link, and an explanation of similarities and differences. Leave the merge decision to the user. Populate matches in the batch yourself; `--catalog` supplies only tag choices.
+
+Assign every candidate a `recommendation` using the documented action codes, with one concise sentence explaining the decision and proposed field values for updates. Name the decisive difference, addition, or question; do not repeat the full description or generic import policy. Keep detailed comparisons in match reasons. Existing catalog data takes priority: missing source fields are not changes. Mark the same format without useful additions as `duplicate`; use `update` only for useful additions that preserve existing information, and `review` for uncertainty or conflicting known values. The tool supplies consistent emoji and initial selection from these recommendations.
 
 Keep each batch in its own `ignore/format-review/<batch-name>/` folder: `batch.json`, `catalog.json`, `review.html`, and a brief `review-state.json` recording `batchId`, file paths, source, and progress so work can resume after review.
 

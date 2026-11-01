@@ -42,7 +42,7 @@ export function validateSelection(inputBatch, selection) {
   if (!Array.isArray(selection.candidates)) throw new Error('candidates: expected an array');
   const selected = new Set(), drafts = new Map(), modes = new Map();
   for (const row of selection.candidates) {
-    const contextKeys = ['candidateId', 'action', 'source', 'similarFormats'];
+    const contextKeys = ['candidateId', 'action', 'source', 'similarFormats', 'recommendation'];
     object(row, 'candidate', [...contextKeys, ...(row?.action === 'create' ? ['format'] : ['targetId', 'targetTitle', 'changes'])]);
     const candidate = batch.candidates.find(candidate => candidate.candidateId === row.candidateId);
     if (!candidate) throw new Error(`candidateId: unknown candidate ${String(row.candidateId)}`);

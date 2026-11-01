@@ -37,6 +37,19 @@ describe('standalone review generator', () => {
     expect(await readFile(outputPath, 'utf8')).toBe('previous output');
   });
 
+  it('rejects a recommendation that clears catalog data without replacing the existing HTML', async () => {
+    const root = await directory();
+    const inputPath = join(root, 'batch.json');
+    const outputPath = join(root, 'review.html');
+    const batch = JSON.parse(await readFile(examplePath, 'utf8'));
+    batch.candidates[1].recommendation = { action: 'update', targetId: 'press-konferentsiya',
+      reason: 'Некорректная рекомендация', changes: { moderator: null } };
+    await writeFile(inputPath, JSON.stringify(batch));
+    await writeFile(outputPath, 'previous output');
+    await expect(generateReview({ inputPath, outputPath })).rejects.toThrow('recommendation.changes.moderator');
+    expect(await readFile(outputPath, 'utf8')).toBe('previous output');
+  });
+
   it.each(['public', 'dist'])('rejects output in %s, including a symlinked parent', async folder => {
     const root = await directory();
     const forbidden = fileURLToPath(new URL(`../${folder}/`, import.meta.url));

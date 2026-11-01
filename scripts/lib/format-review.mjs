@@ -35,6 +35,20 @@ const TEXT_FIELDS = ['title', 'description', 'furniture', 'note', 'video'];
 const FLAG_FIELDS = ['moderator', 'audienceOnStage', 'props'];
 const LIST_FIELDS = ['forms', 'features', 'collections'];
 
+export const REVIEW_RECOMMENDATIONS = {
+  create: { emoji: '➕', label: 'Добавить', selected: true },
+  update: { emoji: '🔄', label: 'Обновить', selected: true },
+  review: { emoji: '❓', label: 'Проверить', selected: false },
+  skip: { emoji: '⏭️', label: 'Пропустить', selected: false },
+  duplicate: { emoji: '🟰', label: 'Дубль', selected: false },
+};
+
+export function reviewCandidatesByRecommendation(candidates) {
+  const order = Object.keys(REVIEW_RECOMMENDATIONS);
+  const priority = candidate => order.indexOf(candidate.recommendation?.action ?? 'review');
+  return [...candidates].sort((a, b) => priority(a) - priority(b));
+}
+
 function textList(value, path) {
   if (!Array.isArray(value)) throw new ReviewDataError(path, 'ожидается массив строк');
   return value.map((item, index) => text(item, `${path}[${index}]`, true));
@@ -71,7 +85,7 @@ export function parseReviewBatch(value) {
   const seen = new Set();
   batch.candidates = row.candidates.map((value, index) => {
     const path = `batch.candidates[${index}]`;
-    const row = object(value, path, ['candidateId', 'format', 'source', 'similarFormats']);
+    const row = object(value, path, ['candidateId', 'format', 'source', 'similarFormats', 'recommendation']);
     const candidateId = text(row.candidateId, `${path}.candidateId`, true);
     if (seen.has(candidateId)) throw new ReviewDataError(`${path}.candidateId`, 'идентификатор повторяется');
     seen.add(candidateId);
@@ -104,6 +118,9 @@ export function parseReviewBatch(value) {
         return match;
       });
     }
+    if (row.recommendation !== undefined) {
+      candidate.recommendation = parseRecommendation(row.recommendation, candidate, `${path}.recommendation`);
+    }
     return candidate;
   });
   return batch;
@@ -132,7 +149,7 @@ export function reviewClassificationOptions(batch, catalog) {
     });
   }
   for (const candidate of batch.candidates) {
-    for (const record of [candidate.format, ...(candidate.similarFormats ?? [])]) {
+    for (const record of [candidate.format, ...(candidate.similarFormats ?? []), candidate.recommendation?.changes ?? {}]) {
       for (const key of LIST_FIELDS) {
         for (const tag of record[key] ?? []) options[key].add(tag);
       }
@@ -161,6 +178,80 @@ export function reviewFormatChanges(before, after) {
     }
   }
   return changes;
+}
+
+function parseRecommendation(value, candidate, path) {
+  const row = object(value, path, ['action', 'reason', 'targetId', 'changes']);
+  if (!Object.hasOwn(REVIEW_RECOMMENDATIONS, row.action)) {
+    throw new ReviewDataError(`${path}.action`, 'ожидается create, update, duplicate, skip или review');
+  }
+  const result = { action: row.action, reason: text(row.reason, `${path}.reason`, true) };
+  if (!['update', 'duplicate'].includes(row.action)) {
+    if (row.targetId !== undefined || row.changes !== undefined) {
+      throw new ReviewDataError(path, 'цель и изменения допустимы только для обновления или дубля');
+    }
+    return result;
+  }
+  result.targetId = text(row.targetId, `${path}.targetId`, true);
+  const matches = (candidate.similarFormats ?? []).filter(match => match.id === result.targetId);
+  if (matches.length !== 1) throw new ReviewDataError(`${path}.targetId`, 'нужно одно совпадение из similarFormats');
+  if (row.action === 'duplicate') {
+    if (row.changes !== undefined) throw new ReviewDataError(`${path}.changes`, 'у дубля нет изменений');
+    return result;
+  }
+  const before = reviewUpdateBase(matches[0]);
+  const changes = object(row.changes, `${path}.changes`, Object.keys(before));
+  const after = parseReviewFormat({ ...before, ...changes }, `${path}.changes`);
+  const keys = Object.keys(changes);
+  if (!keys.length) throw new ReviewDataError(`${path}.changes`, 'для обновления нужны полезные дополнения; иначе отметьте дубль');
+  for (const key of keys) {
+    const next = after[key];
+    const missing = next === null || (typeof next === 'string' && !next.trim()) || (Array.isArray(next) && !next.length);
+    if (missing) throw new ReviewDataError(`${path}.changes.${key}`, 'рекомендация не может заменять данные пустым или неизвестным значением');
+    if (FLAG_FIELDS.includes(key) && before[key] !== null && before[key] !== next) {
+      throw new ReviewDataError(`${path}.changes.${key}`, 'заполненный признак каталога имеет приоритет; противоречие требует проверки');
+    }
+    if (JSON.stringify(before[key]) === JSON.stringify(next)
+      || (typeof next === 'string' && before[key].trim() === next.trim())) {
+      throw new ReviewDataError(`${path}.changes.${key}`, 'поле не изменено; отсутствие новых сведений не является обновлением');
+    }
+    if (LIST_FIELDS.includes(key)) {
+      if (before[key].some(value => !next.includes(value))) {
+        throw new ReviewDataError(`${path}.changes.${key}`, 'рекомендация должна сохранять прежние теги');
+      }
+      if (next.every(value => before[key].includes(value))) {
+        throw new ReviewDataError(`${path}.changes.${key}`, 'нет новых тегов');
+      }
+    }
+    if (key === 'video') {
+      const lines = value => value.split(/\r\n|\r|\n/).map(line => line.trim()).filter(Boolean);
+      const previous = lines(before.video), proposed = lines(next);
+      if (previous.some(line => !proposed.includes(line))) {
+        throw new ReviewDataError(`${path}.changes.video`, 'рекомендация должна сохранять прежние видео');
+      }
+      if (proposed.every(line => previous.includes(line))) {
+        throw new ReviewDataError(`${path}.changes.video`, 'нет новых видео');
+      }
+    }
+  }
+  result.changes = Object.fromEntries(keys.map(key => [key, after[key]]));
+  return result;
+}
+
+export function reviewInitialState(candidate) {
+  const recommendation = candidate.recommendation;
+  if (recommendation?.action === 'update') {
+    const target = candidate.similarFormats.find(match => match.id === recommendation.targetId);
+    return {
+      selected: true,
+      mode: { action: 'update', targetId: target.id },
+      format: structuredClone({ ...reviewUpdateBase(target), ...recommendation.changes }),
+    };
+  }
+  return {
+    selected: recommendation ? REVIEW_RECOMMENDATIONS[recommendation.action].selected : false,
+    mode: { action: 'create' }, format: structuredClone(candidate.format),
+  };
 }
 
 export function reviewFieldTransfer(current, finding, key) {
@@ -219,6 +310,7 @@ export function createReviewSelection(batch, selectedIds, drafts = new Map(), mo
       return {
         candidateId: candidate.candidateId, action: 'update', targetId: target.id, targetTitle: target.title,
         changes, source: structuredClone(candidate.source), similarFormats: structuredClone(candidate.similarFormats),
+        ...(candidate.recommendation ? { recommendation: structuredClone(candidate.recommendation) } : {}),
       };
     });
   if (!candidates.length) throw new ReviewDataError('selection', 'выберите хотя бы один формат');

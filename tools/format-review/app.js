@@ -4,10 +4,11 @@ document.querySelector('#batch-size').textContent = String(reviewBatch.candidate
 document.querySelector('#empty').hidden = reviewBatch.candidates.length > 0;
 document.title = `${reviewBatch.title || 'Ревью форматов'} · Что сыграем?`;
 
-const selected = new Set();
-const drafts = new Map(reviewBatch.candidates.map(candidate => [candidate.candidateId, structuredClone(candidate.format)]));
+const initialStates = new Map(reviewBatch.candidates.map(candidate => [candidate.candidateId, reviewInitialState(candidate)]));
+const selected = new Set([...initialStates].filter(([, state]) => state.selected).map(([id]) => id));
+const drafts = new Map([...initialStates].map(([id, state]) => [id, state.format]));
 const views = new Map();
-const reviewModes = new Map();
+const reviewModes = new Map([...initialStates].map(([id, state]) => [id, state.mode]));
 const classificationOptions = reviewClassificationOptions(reviewBatch);
 const tagPickers = { forms: [], features: [], collections: [] };
 const status = document.querySelector('#status');
@@ -16,6 +17,7 @@ const sheetButton = document.querySelector('#copy-sheet');
 const manualDialog = document.querySelector('#manual-copy');
 let copying = false;
 let lastCopyButton;
+let pointerPosition;
 
 function element(tag, className, text) {
   const node = document.createElement(tag);
@@ -44,7 +46,6 @@ function setCandidateSelected(id, value) {
   else selected.delete(id);
   view.checkbox.checked = value;
   view.card.classList.toggle('is-selected', value);
-  view.pickText.textContent = value ? 'Выбран' : 'Выбрать';
   view.error.hidden = true;
   view.titleControl.removeAttribute('aria-invalid');
   status.textContent = '';
@@ -211,7 +212,7 @@ function renderVideoText(container, value) {
 
 function renderSource(candidate) {
   const source = element('details', 'source-details');
-  source.append(element('summary', '', 'Исходный текст и источник'));
+  source.append(element('summary', '', 'Исходник'));
   const content = element('div', 'source-content');
   content.append(element('p', 'source-label', candidate.source.label));
   if (candidate.source.url) {
@@ -225,11 +226,13 @@ function renderSource(candidate) {
   return source;
 }
 
-const comparisonFields = [
-  ['id', 'ID'], ['moderator', 'Модератор'], ['audienceOnStage', 'Зритель на сцене'], ['props', 'Реквизит'],
+const formatFields = [
+  ['title', 'Название'], ['description', 'Описание'],
+  ['moderator', 'Модератор'], ['audienceOnStage', 'Зритель на сцене'], ['props', 'Реквизит'],
   ['furniture', 'Мебель'], ['forms', 'Форма'], ['features', 'Особенности'], ['collections', 'Подборки'],
   ['note', 'Дополнительно'], ['video', 'Видео'],
 ];
+const snapshotFields = [['id', 'ID'], ...formatFields.filter(([key]) => !['title', 'description'].includes(key))];
 
 function comparisonText(record, key) {
   if (key === 'id' && record.id === undefined) return '—';
@@ -240,254 +243,305 @@ function comparisonText(record, key) {
   return record[key] || 'Не указано';
 }
 
-function comparable(value) {
-  return JSON.stringify(Array.isArray(value) ? [...value].sort() : typeof value === 'string' ? value.trim() : value);
+function formatLink(match) {
+  const url = new URL('https://impro-formats.vercel.app/');
+  url.searchParams.set('format', match.id);
+  return safeLink(match.url || url.href, 'Открыть формат ↗', 'format-link');
 }
 
-function renderContext(candidate, draft, onUpdate) {
-  const context = element('aside', 'context');
-  const refreshers = [];
-  context.setAttribute('aria-label', 'Существующие форматы в каталоге');
-  context.append(element('h3', 'comparison-label', 'В каталоге'));
+function renderContext(candidate, onUpdate) {
   if (!candidate.similarFormats?.length) {
-    context.append(element('p', 'muted', 'Агент не передал похожие форматы.'));
-  } else {
-    for (const match of candidate.similarFormats) {
-      const box = element('section', 'match');
-      box.dataset.formatId = match.id;
-      const url = new URL('https://impro-formats.vercel.app/');
-      url.searchParams.set('format', match.id);
-      const link = safeLink(match.url || url.href, 'Открыть формат ↗', 'format-link');
-      const reason = element('div', 'match-reason');
-      reason.append(element('h5', '', 'Почему может совпадать'), element('p', 'reason', match.reason));
-      box.append(element('h4', '', match.title));
-      const update = element('button', 'update-format', '← Обновить этот формат');
-      update.type = 'button';
-      try {
-        reviewUpdateBase(match);
-        if (candidate.similarFormats.filter(other => other.id === match.id).length !== 1) {
-          throw new Error('Для обновления нужен один снимок записи с этим id.');
-        }
-      } catch (error) {
-        update.disabled = true;
-        update.title = reviewErrorText(error);
-        box.append(element('p', 'missing-value update-unavailable', 'Для обновления нужен полный снимок полей.'));
-      }
-      update.addEventListener('click', () => onUpdate(match));
-      box.append(update);
-      if (link) box.append(link);
-      const refreshMode = () => {
-        const mode = reviewModes.get(candidate.candidateId);
-        const active = mode?.action === 'update' && mode.targetId === match.id;
-        box.classList.toggle('is-update-target', active);
-        update.setAttribute('aria-pressed', String(active));
-      };
-      refreshers.push(refreshMode);
-      refreshMode();
-      box.append(element('p', 'readonly-label', 'Описание в каталоге'), element('p', 'match-description', match.description), reason);
-      const table = element('table', 'comparison-table');
-      table.append(element('caption', '', 'Сравнение полей'));
-      const head = element('thead');
-      const labels = element('tr');
-      for (const label of ['Поле', 'Черновик', 'В каталоге']) labels.append(element('th', '', label));
-      head.append(labels);
-      const rows = element('tbody');
-      for (const [key, label] of comparisonFields) {
-        const row = element('tr');
-        row.dataset.field = key;
-        const caption = element('th', '', label);
-        caption.scope = 'row';
-        const incoming = element('td', 'draft-value');
-        const existing = element('td', 'catalog-value');
-        if (key === 'video' && match.video) renderVideoText(existing, match.video);
-        else existing.textContent = comparisonText(match, key);
-        existing.classList.toggle('missing-value', match[key] === undefined && key !== 'id');
-        const refresh = () => {
-          if (key === 'id') incoming.textContent = reviewModes.get(candidate.candidateId)?.targetId ?? '—';
-          else if (key === 'video' && draft.video) renderVideoText(incoming, draft.video);
-          else incoming.textContent = comparisonText(draft, key);
-          const different = key !== 'id' && match[key] !== undefined && comparable(draft[key]) !== comparable(match[key]);
-          row.classList.toggle('is-different', different);
-          row.title = different ? 'Значения отличаются' : '';
-        };
-        refreshers.push(refresh);
-        refresh();
-        row.append(caption, incoming, existing);
-        rows.append(row);
-      }
-      table.append(head, rows);
-      box.append(table);
-      context.append(box);
-    }
+    return { node: element('p', 'match-empty muted', 'Агент не передал похожие форматы.'), refresh() {} };
   }
-  return { node: context, refresh: () => refreshers.forEach(refresh => refresh()) };
+  const context = element('details', 'context');
+  context.setAttribute('aria-label', 'Существующие форматы в каталоге');
+  const summary = element('summary');
+  context.append(summary);
+  const refreshers = [];
+  for (const match of candidate.similarFormats) {
+    const box = element('section', 'match');
+    box.dataset.formatId = match.id;
+    box.append(element('h4', '', match.title));
+    const actions = element('div', 'match-actions');
+    const update = element('button', 'update-format', '← Обновить этот формат');
+    update.type = 'button';
+    try {
+      reviewUpdateBase(match);
+      if (candidate.similarFormats.filter(other => other.id === match.id).length !== 1) throw new Error('Для обновления нужен один снимок записи с этим id.');
+    } catch (error) {
+      update.disabled = true;
+      update.title = reviewErrorText(error);
+    }
+    update.addEventListener('click', () => onUpdate(match));
+    actions.append(update);
+    const link = formatLink(match);
+    if (link) actions.append(link);
+    box.append(actions, element('p', 'readonly-label', 'Описание в каталоге'), element('p', 'match-description', match.description));
+    const reason = element('div', 'match-reason');
+    reason.append(element('h5', '', 'Агент: почему похоже'), element('p', 'reason', match.reason));
+    box.append(reason);
+    const table = element('table', 'snapshot-table');
+    table.append(element('caption', '', 'Все поля каталога'));
+    const rows = element('tbody');
+    for (const [key, label] of snapshotFields) {
+      const row = element('tr');
+      row.dataset.field = key;
+      const caption = element('th', '', label);
+      caption.scope = 'row';
+      const value = element('td', 'catalog-value');
+      if (key === 'video' && match.video) renderVideoText(value, match.video);
+      else value.textContent = comparisonText(match, key);
+      value.classList.toggle('missing-value', match[key] === undefined);
+      row.append(caption, value);
+      rows.append(row);
+    }
+    table.append(rows);
+    box.append(table);
+    context.append(box);
+    refreshers.push(() => {
+      const active = reviewModes.get(candidate.candidateId)?.targetId === match.id;
+      box.classList.toggle('is-update-target', active);
+      update.setAttribute('aria-pressed', String(active));
+    });
+  }
+  return { node: context, refresh() {
+    const mode = reviewModes.get(candidate.candidateId);
+    summary.textContent = mode.action === 'update'
+      ? `Полный формат в каталоге${candidate.similarFormats.length > 1 ? ' / сменить цель' : ''}`
+      : `Похожие форматы (${candidate.similarFormats.length})`;
+    for (const refresh of refreshers) refresh();
+  } };
 }
 
-for (const [index, candidate] of reviewBatch.candidates.entries()) {
+for (const [index, candidate] of reviewCandidatesByRecommendation(reviewBatch.candidates).entries()) {
   const format = drafts.get(candidate.candidateId);
-  const savedDrafts = new Map([['create', structuredClone(format)]]);
-  let activeDraftKey = 'create';
-  const card = element('article', 'candidate');
+  const savedDrafts = new Map([['create', structuredClone(candidate.format)]]);
+  const initialMode = reviewModes.get(candidate.candidateId);
+  let activeDraftKey = initialMode.action === 'update' ? `update:${initialMode.targetId}` : 'create';
+  let showAll = false;
+  let editFinding = !['duplicate', 'skip'].includes(candidate.recommendation?.action);
+  const revealed = new Map();
+  const revealedFields = () => {
+    if (!revealed.has(activeDraftKey)) revealed.set(activeDraftKey, new Set());
+    return revealed.get(activeDraftKey);
+  };
+  const card = element('article', 'candidate is-collapsed');
   card.dataset.candidateId = candidate.candidateId;
+  if (candidate.recommendation) card.dataset.recommendation = candidate.recommendation.action;
   const top = element('div', 'card-top');
-  const heading = element('h2', 'sr-only', format.title || 'Формат без названия');
+  const heading = element('h2');
   heading.id = `heading-${index}`;
   card.setAttribute('aria-labelledby', heading.id);
-  const pick = element('label', 'pick');
-  const checkbox = element('input');
-  checkbox.type = 'checkbox';
-  checkbox.setAttribute('aria-label', `Выбрать формат ${format.title || index + 1}`);
-  const pickText = element('span', '', 'Выбрать');
-  pick.append(checkbox, pickText);
-
+  const titleGroup = element('div', 'card-title-group');
+  const cardSummary = element('p', 'card-summary', candidate.recommendation
+    ? `Агент: ${candidate.recommendation.reason}` : candidate.format.description);
+  titleGroup.append(heading, cardSummary);
   const body = element('div', 'card-body');
   body.id = `format-body-${index}`;
+  body.hidden = true;
   const disclosure = element('button', 'card-toggle', '▾');
   disclosure.type = 'button';
+  disclosure.setAttribute('aria-keyshortcuts', 'C');
   disclosure.setAttribute('aria-controls', body.id);
+  const headerTitle = () => reviewModes.get(candidate.candidateId).action === 'update' ? savedDrafts.get('create').title : format.title;
   const updateDisclosure = () => {
+    const title = headerTitle() || 'Формат без названия';
+    heading.textContent = title;
+    checkbox.setAttribute('aria-label', `Выбрать формат ${title}`);
     disclosure.setAttribute('aria-expanded', String(!body.hidden));
-    disclosure.setAttribute('aria-label', `${body.hidden ? 'Развернуть' : 'Свернуть'} формат ${format.title || index + 1}`);
-    disclosure.title = body.hidden ? 'Развернуть формат' : 'Свернуть формат';
+    disclosure.setAttribute('aria-label', `${body.hidden ? 'Развернуть' : 'Свернуть'} формат ${title}`);
+    disclosure.title = `${body.hidden ? 'Развернуть' : 'Свернуть'} формат (C)`;
   };
   const setExpanded = expanded => {
+    if (!expanded && body.contains(document.activeElement)) disclosure.focus({ preventScroll: true });
     body.hidden = !expanded;
     card.classList.toggle('is-collapsed', !expanded);
     updateDisclosure();
+    resizeEditors();
     updateExpansionActions();
   };
   disclosure.addEventListener('click', () => setExpanded(body.hidden));
-  updateDisclosure();
-  const editor = element('div', 'editor');
-  const comparison = renderContext(candidate, format, match => switchMode(match));
-  const modeBadge = element('span', 'mode-badge', 'Обновление');
-  modeBadge.hidden = true;
-  const modePanel = element('div', 'update-mode-panel');
-  modePanel.hidden = true;
-  const targetLabel = element('strong');
+  const pick = element('label', 'pick');
+  const checkbox = element('input');
+  checkbox.type = 'checkbox';
+  checkbox.setAttribute('aria-keyshortcuts', 'S');
+  pick.title = 'Выбрать / снять выбор (S)';
+  pick.append(checkbox);
+  top.append(pick, disclosure, element('span', 'card-number', String(index + 1).padStart(2, '0')), titleGroup);
+  if (candidate.recommendation) {
+    const { emoji, label } = REVIEW_RECOMMENDATIONS[candidate.recommendation.action];
+    const badge = element('span', 'recommendation-badge', `${emoji} ${label}`);
+    badge.title = `Рекомендация агента: ${candidate.recommendation.reason}`;
+    top.append(badge);
+  }
+
+  const actionPanel = element('div', 'review-action');
+  const actionLine = element('div', 'action-line');
+  const actionTitle = element('strong');
   const changeCount = element('span', 'update-change-count');
-  const returnToCreate = element('button', 'return-to-create', 'Вернуться к новому формату');
+  const targetLink = element('span', 'target-link');
+  const returnToCreate = element('button', 'return-to-create', 'Добавить как новый');
   returnToCreate.type = 'button';
   returnToCreate.addEventListener('click', () => switchMode(null));
-  modePanel.append(targetLabel, changeCount,
-    element('p', 'update-instruction', 'Ниже — итог обновления. Данные находки видны у каждого поля: переносите нужное кнопками или правьте итог вручную.'), returnToCreate);
-  const editorLabel = element('h3', 'comparison-label', 'Черновик для каталога');
-  const transfers = [];
-  const refreshModePanel = () => {
-    const mode = reviewModes.get(candidate.candidateId);
-    const updating = mode?.action === 'update';
-    modePanel.hidden = modeBadge.hidden = !updating;
-    card.classList.toggle('is-update', updating);
-    editorLabel.textContent = updating ? 'Итог обновления' : 'Черновик для каталога';
-    for (const refresh of transfers) refresh(updating);
-    if (updating) {
-      const match = candidate.similarFormats.find(match => match.id === mode.targetId);
-      targetLabel.textContent = `Обновление «${match.title}»`;
-      changeCount.textContent = `Изменено полей: ${Object.keys(reviewFormatChanges(reviewUpdateBase(match), format)).length}`;
-    }
-  };
-  const descriptionNote = element('p', 'description-note', 'Черновик отличается от исходного текста.');
-  const videoPreview = element('div', 'video-preview');
-  const refreshDescriptionNote = () => {
-    descriptionNote.hidden = !candidate.source.text || format.description.trim() === candidate.source.text.trim();
-  };
-  let titleControl;
-  const error = element('p', 'field-error', 'Укажите название формата');
-  error.hidden = true;
-  error.id = `title-error-${index}`;
+  actionLine.append(actionTitle, changeCount, targetLink, returnToCreate);
+  actionPanel.append(actionLine);
+  if (candidate.recommendation) {
+    const reason = element('p', 'recommendation-reason');
+    reason.append(element('strong', '', 'Агент: '), document.createTextNode(candidate.recommendation.reason));
+    actionPanel.append(reason);
+  }
+  const context = renderContext(candidate, match => switchMode(match));
+  const preview = element('div', 'finding-preview');
+  preview.append(element('p', 'readonly-label', 'Описание находки'), element('p', 'finding-description', candidate.format.description));
+  const editButton = element('button', 'edit-finding', 'Показать поля находки');
+  editButton.type = 'button';
+  editButton.addEventListener('click', () => { editFinding = true; refreshView(); });
+  preview.append(editButton);
+
+  const editor = element('div', 'editor');
+  const editorTools = element('div', 'editor-tools');
+  const editorLabel = element('h3', 'comparison-label');
+  const showAllButton = element('button', 'show-all-fields', 'Показать все поля');
+  showAllButton.type = 'button';
+  showAllButton.setAttribute('aria-controls', `fields-${index}`);
+  showAllButton.addEventListener('click', () => {
+    showAll = !showAll;
+    if (!showAll) revealed.set(activeDraftKey, new Set());
+    refreshView();
+  });
+  editorTools.append(editorLabel, showAllButton);
+  const columns = element('div', 'field-columns');
+  columns.setAttribute('aria-hidden', 'true');
+  for (const label of ['Находка', 'В каталоге', 'Итог']) columns.append(element('span', '', label));
+  const emptyChanges = element('p', 'empty-changes', 'Пока нет изменений. Покажите все поля, чтобы дополнить формат.');
+  const fields = element('div', 'fields-list');
+  fields.id = `fields-${index}`;
+  const fieldRows = new Map();
+  let titleControl, error;
   const onEdit = key => {
-    if (key === 'title') {
-      heading.textContent = format.title || 'Формат без названия';
-      updateDisclosure();
-      checkbox.setAttribute('aria-label', `Выбрать формат ${format.title || index + 1}`);
-      titleControl.removeAttribute('aria-invalid');
-      error.hidden = true;
+    if (reviewModes.get(candidate.candidateId).action === 'update') revealedFields().add(key);
+    if (!selected.has(candidate.candidateId)) {
+      setCandidateSelected(candidate.candidateId, true);
+      updateSelection();
     }
-    if (key === 'description') refreshDescriptionNote();
-    if (key === 'video') renderVideoText(videoPreview, format.video);
-    refreshModePanel();
-    comparison.refresh();
+    if (key === 'title') { titleControl.removeAttribute('aria-invalid'); error.hidden = true; }
+    refreshView();
   };
   const syncField = key => {
     const control = card.querySelector(`[name="${key}"]`);
     if (control) control.value = format[key] === null ? '' : String(format[key]);
     for (const refresh of tagPickers[key] ?? []) refresh();
   };
-  const findingField = (key, label) => {
-    const wrapper = element('div', 'finding-field');
-    wrapper.dataset.findingField = key;
-    wrapper.hidden = true;
-    const header = element('div', 'finding-field-heading');
-    const caption = element('span', '', key === 'title' ? 'Название в находке' : 'В находке');
-    const append = ['video', 'forms', 'features', 'collections'].includes(key);
-    const action = append ? 'Добавить' : 'Заменить';
-    const button = element('button', 'transfer-field', action);
-    button.type = 'button';
-    button.setAttribute('aria-label', `${action} из находки: ${label}`);
-    button.title = append ? 'Добавить отсутствующие значения к итогу' : 'Заменить это поле итога значением находки';
-    const value = element('div', 'finding-value');
-    header.append(caption, button);
-    wrapper.append(header, value);
-    transfers.push(updating => {
-      wrapper.hidden = !updating;
-      if (!updating) return;
-      const finding = savedDrafts.get('create');
-      if (key === 'video') renderVideoText(value, finding[key]);
-      else value.textContent = comparisonText(finding, key);
-      if (key === 'video' && !finding[key]) value.textContent = 'Не указано';
-      button.disabled = JSON.stringify(reviewFieldTransfer(format, finding, key)) === JSON.stringify(format[key]);
-    });
-    button.addEventListener('click', () => {
-      if (reviewModes.get(candidate.candidateId)?.action !== 'update') return;
+  for (const [key, label] of formatFields) {
+    const row = element('section', 'review-field');
+    row.dataset.field = key;
+    const options = { flag: ['moderator', 'audienceOnStage', 'props'].includes(key), multiline: ['description', 'note', 'video'].includes(key) };
+    const result = ['forms', 'features', 'collections'].includes(key)
+      ? { wrapper: tagField(key, label, format, index, onEdit) }
+      : field(key, label, format, index, onEdit, options);
+    result.wrapper.classList.add('result-field');
+    const caption = result.wrapper.querySelector('label');
+    caption.classList.add('field-label');
+    row.append(caption);
+    const cells = element('div', 'field-comparison');
+    const findingCell = element('div', 'finding-field');
+    findingCell.dataset.findingField = key;
+    findingCell.dataset.label = 'Находка';
+    const findingValue = element('div', 'finding-value');
+    const adding = ['forms', 'features', 'collections', 'video'].includes(key);
+    const action = adding ? 'Добавить' : 'Заменить';
+    const transfer = element('button', 'transfer-field', action);
+    transfer.type = 'button';
+    transfer.setAttribute('aria-label', `${action} из находки: ${label}`);
+    transfer.title = adding ? 'Добавить отсутствующие значения к итогу' : 'Заменить это поле итога значением находки';
+    transfer.addEventListener('click', () => {
+      if (reviewModes.get(candidate.candidateId).action !== 'update') return;
       format[key] = reviewFieldTransfer(format, savedDrafts.get('create'), key);
       syncField(key);
       onEdit(key);
-      status.textContent = `${label}: ${append ? 'данные находки добавлены к итогу' : 'итог заменён значением находки'}.`;
+      status.textContent = `${label}: ${adding ? 'данные находки добавлены к итогу' : 'итог заменён значением находки'}.`;
     });
-    return wrapper;
-  };
-  const editableField = (key, label, options) => {
-    const result = field(key, label, format, index, onEdit, options);
-    result.wrapper.append(findingField(key, label));
-    return result;
-  };
-  const title = field('title', 'Название формата', format, index, onEdit);
-  title.wrapper.classList.add('title-field');
-  title.wrapper.querySelector('label').classList.add('sr-only');
-  titleControl = title.control;
-  titleControl.setAttribute('aria-describedby', error.id);
-  title.wrapper.append(error);
-  top.append(disclosure, element('span', 'card-number', String(index + 1).padStart(2, '0')), heading, title.wrapper, modeBadge, pick);
-  const editorHeading = element('div', 'editor-heading');
-  editorHeading.append(editorLabel, renderSource(candidate));
-  editor.append(modePanel, editorHeading, findingField('title', 'Название формата'));
-  const description = editableField('description', 'Описание для каталога', { multiline: true });
-  description.wrapper.append(descriptionNote);
-  refreshDescriptionNote();
-  editor.append(description.wrapper);
-  const requirements = element('div', 'requirements-grid');
-  const flags = element('div', 'flags');
-  for (const [key, label] of [['moderator', 'Модератор'], ['audienceOnStage', 'Зритель на сцене'], ['props', 'Реквизит']]) {
-    flags.append(editableField(key, label, { flag: true }).wrapper);
+    findingCell.append(findingValue, transfer);
+    const catalogValue = element('div', 'catalog-value');
+    catalogValue.dataset.label = 'В каталоге';
+    let videoPreview;
+    if (key === 'video') {
+      result.control.placeholder = 'Ссылка или ссылки на видео';
+      videoPreview = element('div', 'video-preview');
+      result.wrapper.append(videoPreview);
+    }
+    if (key === 'title') {
+      titleControl = result.control;
+      error = element('p', 'field-error', 'Укажите название формата');
+      error.hidden = true;
+      error.id = `title-error-${index}`;
+      titleControl.setAttribute('aria-describedby', error.id);
+      result.wrapper.append(error);
+    }
+    cells.append(findingCell, catalogValue, result.wrapper);
+    row.append(cells);
+    fields.append(row);
+    fieldRows.set(key, { row, refresh(updating, base, changed) {
+      row.hidden = updating && !showAll && !changed && !revealedFields().has(key);
+      row.classList.toggle('is-different', updating && changed);
+      findingCell.hidden = catalogValue.hidden = !updating;
+      if (updating) {
+        const finding = savedDrafts.get('create');
+        if (key === 'video' && finding.video) renderVideoText(findingValue, finding.video);
+        else findingValue.textContent = comparisonText(finding, key);
+        if (key === 'video' && base.video) renderVideoText(catalogValue, base.video);
+        else catalogValue.textContent = comparisonText(base, key);
+        transfer.disabled = JSON.stringify(reviewFieldTransfer(format, finding, key)) === JSON.stringify(format[key]);
+      }
+      if (videoPreview) renderVideoText(videoPreview, format.video);
+    } });
   }
-  requirements.append(flags, editableField('furniture', 'Мебель').wrapper);
-  const tags = element('div', 'tags');
-  for (const [key, label] of [['forms', 'Форма'], ['features', 'Особенности'], ['collections', 'Подборки']]) {
-    const tag = tagField(key, label, format, index, onEdit);
-    tag.append(findingField(key, label));
-    tags.append(tag);
-  }
-  editor.append(requirements, tags, editableField('note', 'Дополнительно', { multiline: true }).wrapper);
-  const video = editableField('video', 'Видео', { multiline: true });
-  video.control.placeholder = 'Ссылка или ссылки на видео';
-  video.wrapper.append(videoPreview);
-  renderVideoText(videoPreview, format.video);
-  editor.append(video.wrapper);
-  body.append(editor, comparison.node);
+  editor.append(editorTools, columns, emptyChanges, fields);
+  body.append(actionPanel, renderSource(candidate), context.node, preview, editor);
   card.append(top, body);
   document.querySelector('#candidates').append(card);
-  views.set(candidate.candidateId, { titleControl, error, card, checkbox, pickText, body, setExpanded });
-  const switchMode = match => {
+
+  function resizeEditors() {
+    if (body.hidden || editor.hidden) return;
+    for (const textarea of fields.querySelectorAll('textarea')) {
+      if (textarea.closest('.review-field').hidden) continue;
+      textarea.style.height = 'auto';
+      textarea.style.height = `${Math.min(textarea.scrollHeight + 2, 480)}px`;
+    }
+  }
+
+  function refreshView() {
+    const mode = reviewModes.get(candidate.candidateId);
+    const updating = mode.action === 'update';
+    const target = updating ? candidate.similarFormats.find(match => match.id === mode.targetId) : null;
+    const base = target ? reviewUpdateBase(target) : null;
+    const changes = base ? reviewFormatChanges(base, format) : {};
+    card.classList.toggle('is-update', updating);
+    card.classList.toggle('is-create', !updating);
+    actionTitle.textContent = updating ? `🔄 Обновить «${target.title}»` : '';
+    actionTitle.hidden = !updating;
+    changeCount.hidden = returnToCreate.hidden = !updating;
+    changeCount.textContent = `Изменено полей: ${Object.keys(changes).length}`;
+    targetLink.replaceChildren();
+    const linkedTarget = target ?? candidate.similarFormats?.find(match => match.id === candidate.recommendation?.targetId);
+    const link = linkedTarget ? formatLink(linkedTarget) : null;
+    if (link) targetLink.append(link);
+    actionLine.hidden = !updating && !link;
+    actionPanel.hidden = actionLine.hidden && !candidate.recommendation;
+    editorLabel.textContent = updating ? 'Изменения формата' : 'Черновик для каталога';
+    showAllButton.hidden = columns.hidden = !updating;
+    showAllButton.textContent = showAll ? 'Только изменения' : 'Показать все поля';
+    showAllButton.setAttribute('aria-expanded', String(showAll));
+    const editing = updating || editFinding;
+    editor.hidden = !editing;
+    preview.hidden = editing;
+    for (const [key, field] of fieldRows) field.refresh(updating, base, Object.hasOwn(changes, key));
+    emptyChanges.hidden = !updating || [...fieldRows.values()].some(field => !field.row.hidden);
+    updateDisclosure();
+    context.refresh();
+    resizeEditors();
+  }
+  function switchMode(match) {
     const key = match ? `update:${match.id}` : 'create';
     if (key === activeDraftKey) return;
     let base;
@@ -496,18 +550,30 @@ for (const [index, candidate] of reviewBatch.candidates.entries()) {
     savedDrafts.set(activeDraftKey, structuredClone(format));
     Object.assign(format, structuredClone(savedDrafts.get(key) ?? base));
     activeDraftKey = key;
+    showAll = false;
+    editFinding = true;
     reviewModes.set(candidate.candidateId, match ? { action: 'update', targetId: match.id } : { action: 'create' });
     for (const key of Object.keys(format)) syncField(key);
-    onEdit('title');
-    refreshDescriptionNote();
-    renderVideoText(videoPreview, format.video);
+    titleControl.removeAttribute('aria-invalid');
+    error.hidden = true;
+    refreshView();
     status.textContent = '';
     updateSelection();
-  };
+  }
+  views.set(candidate.candidateId, { titleControl, error, card, checkbox, body, setExpanded, resizeEditors,
+    showField(key) {
+      editFinding = true;
+      revealedFields().add(key);
+      setExpanded(true);
+      refreshView();
+    },
+  });
   checkbox.addEventListener('change', () => {
     setCandidateSelected(candidate.candidateId, checkbox.checked);
     updateSelection();
   });
+  setCandidateSelected(candidate.candidateId, selected.has(candidate.candidateId));
+  refreshView();
 }
 
 document.querySelector('#select-all').addEventListener('click', () => {
@@ -525,6 +591,98 @@ document.querySelector('#collapse-all').addEventListener('click', () => {
   for (const view of views.values()) view.setExpanded(false);
 });
 
+const widthHandle = document.querySelector('#review-width-handle');
+const reviewShell = document.querySelector('main.shell');
+const widthStorageKey = 'format-review-width';
+let preferredWidth = 1054;
+let widthDrag;
+try {
+  const saved = Number(localStorage.getItem(widthStorageKey));
+  if (Number.isFinite(saved) && saved > 0) preferredWidth = saved;
+} catch { /* File previews can disable local storage. */ }
+const widthLimits = () => {
+  const max = Math.max(0, document.documentElement.clientWidth - 32);
+  return { min: Math.min(760, max), max };
+};
+function applyReviewWidth() {
+  const { min, max } = widthLimits();
+  const width = Math.max(min, Math.min(max, preferredWidth));
+  document.documentElement.style.setProperty('--review-width', `${width}px`);
+  widthHandle.setAttribute('aria-valuemin', String(min));
+  widthHandle.setAttribute('aria-valuemax', String(max));
+  widthHandle.setAttribute('aria-valuenow', String(width));
+  widthHandle.setAttribute('aria-valuetext', `${Math.round(width)} пикселей`);
+  for (const view of views.values()) view.resizeEditors();
+}
+function saveReviewWidth() {
+  try { localStorage.setItem(widthStorageKey, String(preferredWidth)); }
+  catch { /* Resizing still works without persistent storage. */ }
+}
+widthHandle.addEventListener('pointerdown', event => {
+  if (event.button !== 0) return;
+  widthDrag = { x: event.clientX, width: reviewShell.getBoundingClientRect().width };
+  widthHandle.setPointerCapture(event.pointerId);
+  widthHandle.focus({ preventScroll: true });
+  document.body.classList.add('is-resizing');
+  event.preventDefault();
+});
+widthHandle.addEventListener('pointermove', event => {
+  if (!widthDrag) return;
+  const { min, max } = widthLimits();
+  preferredWidth = Math.max(min, Math.min(max, widthDrag.width + 2 * (event.clientX - widthDrag.x)));
+  applyReviewWidth();
+});
+widthHandle.addEventListener('lostpointercapture', () => {
+  widthDrag = undefined;
+  document.body.classList.remove('is-resizing');
+  saveReviewWidth();
+});
+widthHandle.addEventListener('dblclick', () => {
+  preferredWidth = 1054;
+  applyReviewWidth();
+  saveReviewWidth();
+});
+widthHandle.addEventListener('keydown', event => {
+  if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+  if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+  const { min, max } = widthLimits();
+  const current = reviewShell.getBoundingClientRect().width;
+  preferredWidth = event.key === 'Home' ? min : event.key === 'End' ? max
+    : Math.max(min, Math.min(max, current + (event.key === 'ArrowLeft' ? -20 : 20)));
+  applyReviewWidth();
+  saveReviewWidth();
+  event.preventDefault();
+});
+window.addEventListener('resize', applyReviewWidth);
+applyReviewWidth();
+
+function rememberPointer(event) {
+  pointerPosition = event.pointerType === 'mouse' || event.pointerType === 'pen'
+    ? { x: event.clientX, y: event.clientY } : undefined;
+}
+document.addEventListener('pointermove', rememberPointer, { passive: true });
+document.addEventListener('pointerdown', rememberPointer, { passive: true });
+document.documentElement.addEventListener('pointerleave', () => { pointerPosition = undefined; });
+window.addEventListener('blur', () => { pointerPosition = undefined; });
+document.addEventListener('keydown', event => {
+  if (event.defaultPrevented || event.repeat || event.isComposing
+    || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || manualDialog.open || widthDrag) return;
+  const active = document.activeElement;
+  if (active instanceof HTMLElement && (active.isContentEditable
+    || active.matches('textarea, select, input:not([type=checkbox]):not([type=radio]):not([type=button]):not([type=submit]):not([type=reset])'))) return;
+  const key = event.code || `Key${event.key.toUpperCase()}`;
+  if (!['KeyC', 'KeyS'].includes(key) || !pointerPosition) return;
+  const card = document.elementFromPoint(pointerPosition.x, pointerPosition.y)?.closest('.candidate');
+  const view = card ? views.get(card.dataset.candidateId) : null;
+  if (!view) return;
+  event.preventDefault();
+  if (key === 'KeyC') view.setExpanded(view.body.hidden);
+  else {
+    setCandidateSelected(card.dataset.candidateId, !selected.has(card.dataset.candidateId));
+    updateSelection();
+  }
+});
+
 async function copySelection(kind, button) {
   const exportIds = kind === 'sheet'
     ? new Set([...selected].filter(id => reviewModes.get(id)?.action !== 'update')) : selected;
@@ -535,12 +693,13 @@ async function copySelection(kind, button) {
     view.error.hidden = !invalid;
     if (invalid) {
       view.titleControl.setAttribute('aria-invalid', 'true');
-      firstInvalid ??= view.titleControl;
+      firstInvalid ??= view;
     } else view.titleControl.removeAttribute('aria-invalid');
   }
   if (firstInvalid) {
     status.textContent = 'Заполните название у выбранных форматов.';
-    firstInvalid.focus();
+    firstInvalid.showField('title');
+    firstInvalid.titleControl.focus();
     return;
   }
   let selection;

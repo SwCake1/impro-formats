@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { readFile } from 'node:fs/promises';
-import { createReviewSelection, parseReviewBatch, reviewClassificationOptions, reviewFieldTransfer, reviewSelectionToTsv, reviewUpdateBase } from './format-review.mjs';
+import { createReviewSelection, parseReviewBatch, reviewCandidatesByRecommendation, reviewClassificationOptions, reviewFieldTransfer, reviewInitialState, reviewSelectionToTsv, reviewUpdateBase } from './format-review.mjs';
 
 function sampleBatch() {
   return {
@@ -171,6 +171,114 @@ function updateBatch() {
   }];
   return parseReviewBatch(batch);
 }
+
+describe('agent recommendations', () => {
+  it('groups the view by recommendation stably without rearranging the source batch', () => {
+    const input = [
+      ['duplicate-1', 'duplicate'], ['review-1', 'review'], ['update', 'update'], ['create-1', 'create'],
+      ['unclassified', undefined], ['skip', 'skip'], ['create-2', 'create'], ['duplicate-2', 'duplicate'], ['review-2', 'review'],
+    ].map(([candidateId, action]) => ({ candidateId, ...(action ? { recommendation: { action } } : {}) }));
+    const before = structuredClone(input);
+    const sorted = reviewCandidatesByRecommendation(input);
+    expect(sorted.map(candidate => candidate.candidateId)).toEqual([
+      'create-1', 'create-2', 'update', 'review-1', 'unclassified', 'review-2', 'skip', 'duplicate-1', 'duplicate-2',
+    ]);
+    expect(input).toEqual(before);
+    expect(sorted[0]).toBe(input[3]);
+  });
+
+  it('accepts the recommended example without mutating its finding or catalog snapshots', async () => {
+    const input = JSON.parse(await readFile(new URL('../../tools/format-review/example-recommendations.json', import.meta.url), 'utf8'));
+    const original = structuredClone(input);
+    const batch = parseReviewBatch(input);
+    const states = batch.candidates.map(reviewInitialState);
+    expect(states.filter(state => state.selected)).toHaveLength(2);
+    expect(batch.candidates.map(candidate => candidate.recommendation.action)).toEqual(['create', 'update', 'duplicate', 'review']);
+    expect(states[1].format.description).toBe(batch.candidates[1].similarFormats[0].description);
+    expect(states[1].format.moderator).toBe(false);
+    expect(input).toEqual(original);
+  });
+
+  it.each([
+    ['create', true], ['duplicate', false], ['skip', false], ['review', false],
+  ])('starts %s with the recommended selection while keeping finding data', (action, selected) => {
+    const input = updateBatch();
+    const row = input.candidates[0];
+    row.recommendation = { action, reason: 'Объяснение рекомендации', ...(action === 'duplicate' ? { targetId: 'existing' } : {}) };
+    const candidate = parseReviewBatch(input).candidates[0];
+    const state = reviewInitialState(candidate);
+    expect(state).toEqual({ selected, mode: { action: 'create' }, format: row.format });
+    state.format.features.push('Правка');
+    expect(candidate.format.features).toEqual([]);
+    expect(reviewInitialState(parseReviewBatch(sampleBatch()).candidates[0]).selected).toBe(false);
+  });
+
+  it('prepares only proposed update fields, preserves catalog data and exports the actual decision', () => {
+    const input = updateBatch();
+    const original = structuredClone(input);
+    input.candidates[0].recommendation = { action: 'update', reason: 'Есть новое видео и тег', targetId: 'existing',
+      changes: { video: 'https://example.com/old.mp4\nhttps://example.com/new.mp4', features: ['Музыкальные'] } };
+    const batch = parseReviewBatch(input);
+    const state = reviewInitialState(batch.candidates[0]);
+    expect(state.mode).toEqual({ action: 'update', targetId: 'existing' });
+    expect(state.selected).toBe(true);
+    expect(state.format).toMatchObject({ title: 'Существующий формат', props: false, moderator: false,
+      furniture: 'Стул', note: 'Сохранить примечание', features: ['Музыкальные'] });
+    expect(batch.candidates[0].format).toEqual(original.candidates[0].format);
+    expect(batch.candidates[0].similarFormats).toEqual(original.candidates[0].similarFormats);
+    expect(reviewClassificationOptions(batch).features).toContain('Музыкальные');
+    const selection = createReviewSelection(batch, new Set(['one']), new Map([['one', state.format]]), new Map([['one', state.mode]]));
+    expect(Object.keys(selection.candidates[0].changes)).toEqual(['video', 'features']);
+    expect(selection.candidates[0].recommendation).toEqual(input.candidates[0].recommendation);
+    // The recommendation is context; a user can instead choose creation.
+    const override = createReviewSelection(batch, new Set(['one']));
+    expect(override.candidates[0].action).toBe('create');
+    expect(override.candidates[0].recommendation.action).toBe('update');
+  });
+
+  it('keeps a less complete duplicate unselected without treating unknown fields as updates', () => {
+    const input = updateBatch();
+    input.candidates[0].format = { ...input.candidates[0].format, props: null, furniture: '', features: [], video: '' };
+    input.candidates[0].recommendation = { action: 'duplicate', reason: 'В каталоге уже больше данных', targetId: 'existing' };
+    const candidate = parseReviewBatch(input).candidates[0];
+    expect(reviewInitialState(candidate).selected).toBe(false);
+    expect(reviewUpdateBase(candidate.similarFormats[0])).toMatchObject({ props: false, furniture: 'Стул', video: 'https://example.com/old.mp4' });
+  });
+
+  it.each([
+    ['action', rec => { rec.action = 'random-emoji'; }],
+    ['reason', rec => { rec.reason = ''; }],
+    ['targetId', rec => { rec.targetId = 'missing'; }],
+    ['changes', rec => { rec.changes = {}; }],
+    ['changes.id', rec => { rec.changes = { id: 'renamed' }; }],
+    ['changes.props', rec => { rec.changes = { props: null }; }],
+    ['changes.props', rec => { rec.changes = { props: true }; }],
+    ['changes.note', rec => { rec.changes = { note: ' ' }; }],
+    ['changes.features', rec => { rec.changes = { features: [] }; }],
+    ['changes.features', rec => { rec.changes = { features: ['Другой'] }; }],
+    ['changes.forms', rec => { rec.changes = { forms: ['Короткая форма', 'Короткая форма'] }; }],
+    ['changes.video', rec => { rec.changes = { video: 'https://example.com/new.mp4' }; }],
+    ['changes.video', rec => { rec.changes = { video: ' https://example.com/old.mp4\n' }; }],
+    ['changes.furniture', rec => { rec.changes = { furniture: 'Стул' }; }],
+  ])('rejects an invalid or destructive recommendation at %s', (path, alter) => {
+    const input = updateBatch();
+    input.candidates[0].similarFormats[0].features = ['Существующий'];
+    const rec = { action: 'update', reason: 'Дополнение', targetId: 'existing', changes: { note: 'Новая заметка' } };
+    alter(rec);
+    input.candidates[0].recommendation = rec;
+    expect(() => parseReviewBatch(input)).toThrow(`recommendation.${path}`);
+  });
+
+  it('rejects incomplete update targets and does not silently ignore changes on a duplicate', () => {
+    const input = sampleBatch();
+    input.candidates[0].recommendation = { action: 'update', reason: 'Дополнение', targetId: 'existing', changes: { note: 'Заметка' } };
+    expect(() => parseReviewBatch(input)).toThrow('полный снимок');
+    input.candidates[0].recommendation.action = 'duplicate';
+    expect(() => parseReviewBatch(input)).toThrow('у дубля нет изменений');
+    input.candidates[0].recommendation = { action: 'skip', reason: 'Не формат', targetId: 'existing' };
+    expect(() => parseReviewBatch(input)).toThrow('recommendation');
+  });
+});
 
 describe('transferring finding fields into an update', () => {
   it('appends video lines without changing existing text or repeating equivalent lines', () => {
