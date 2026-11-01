@@ -226,13 +226,25 @@ function renderSource(candidate) {
   return source;
 }
 
-const formatFields = [
-  ['title', 'Название'], ['description', 'Описание'],
-  ['moderator', 'Модератор'], ['audienceOnStage', 'Зритель на сцене'], ['props', 'Реквизит'],
-  ['furniture', 'Мебель'], ['forms', 'Форма'], ['features', 'Особенности'], ['collections', 'Подборки'],
-  ['note', 'Дополнительно'], ['video', 'Видео'],
+const fieldGroups = [
+  { id: 'main', label: 'Основное', fields: [['title', 'Название'], ['description', 'Описание']] },
+  { id: 'requirements', label: 'Требования', fields: [
+    ['moderator', 'Модератор'], ['audienceOnStage', 'Зритель на сцене'], ['props', 'Реквизит'], ['furniture', 'Мебель'],
+  ] },
+  { id: 'classification', label: 'Классификация', fields: [['forms', 'Форма'], ['features', 'Особенности'], ['collections', 'Подборки']] },
+  { id: 'extra', label: 'Заметки и видео', fields: [['note', 'Дополнительно'], ['video', 'Видео']] },
 ];
-const snapshotFields = [['id', 'ID'], ...formatFields.filter(([key]) => !['title', 'description'].includes(key))];
+const formatFields = fieldGroups.flatMap(group => group.fields);
+
+function renderFieldGroup(group, snapshot = false) {
+  const node = element('section', 'field-group');
+  node.dataset.fieldGroup = group.id;
+  node.setAttribute('aria-label', group.label);
+  node.append(element(snapshot ? 'h5' : 'h4', 'group-label', group.label));
+  const content = element(snapshot ? 'dl' : 'div', 'group-fields');
+  node.append(content);
+  return { node, content };
+}
 
 function comparisonText(record, key) {
   if (key === 'id' && record.id === undefined) return '—';
@@ -259,9 +271,12 @@ function renderContext(candidate, onUpdate) {
   context.append(summary);
   const refreshers = [];
   for (const match of candidate.similarFormats) {
-    const box = element('section', 'match');
+    const box = element('details', 'match');
     box.dataset.formatId = match.id;
-    box.append(element('h4', '', match.title));
+    const matchSummary = element('summary', 'match-summary');
+    matchSummary.append(element('span', 'match-title', match.title), element('span', 'match-excerpt', match.description));
+    const matchBody = element('div', 'match-body');
+    box.append(matchSummary, matchBody);
     const actions = element('div', 'match-actions');
     const update = element('button', 'update-format', '← Обновить этот формат');
     update.type = 'button';
@@ -276,27 +291,30 @@ function renderContext(candidate, onUpdate) {
     actions.append(update);
     const link = formatLink(match);
     if (link) actions.append(link);
-    box.append(actions, element('p', 'readonly-label', 'Описание в каталоге'), element('p', 'match-description', match.description));
+    matchBody.append(actions, element('p', 'match-id', `ID: ${match.id}`));
     const reason = element('div', 'match-reason');
     reason.append(element('h5', '', 'Агент: почему похоже'), element('p', 'reason', match.reason));
-    box.append(reason);
-    const table = element('table', 'snapshot-table');
-    table.append(element('caption', '', 'Все поля каталога'));
-    const rows = element('tbody');
-    for (const [key, label] of snapshotFields) {
-      const row = element('tr');
-      row.dataset.field = key;
-      const caption = element('th', '', label);
-      caption.scope = 'row';
-      const value = element('td', 'catalog-value');
-      if (key === 'video' && match.video) renderVideoText(value, match.video);
-      else value.textContent = comparisonText(match, key);
-      value.classList.toggle('missing-value', match[key] === undefined);
-      row.append(caption, value);
-      rows.append(row);
+    matchBody.append(reason);
+    const snapshot = element('div', 'snapshot');
+    for (const group of fieldGroups) {
+      const section = renderFieldGroup(group, true);
+      for (const [key, label] of group.fields) {
+        const field = element('div', 'snapshot-field');
+        field.dataset.field = key;
+        const value = element('dd', 'catalog-value readonly-value');
+        if (key === 'description') value.classList.add('match-description');
+        if (key === 'video' && match.video) renderVideoText(value, match.video);
+        else if (Array.isArray(match[key]) && match[key].length) {
+          value.classList.add('tag-values');
+          for (const tag of match[key]) value.append(element('span', 'tag-chip', tag));
+        } else value.textContent = comparisonText(match, key);
+        value.classList.toggle('missing-value', match[key] === undefined);
+        field.append(element('dt', 'field-label', label), value);
+        section.content.append(field);
+      }
+      snapshot.append(section.node);
     }
-    table.append(rows);
-    box.append(table);
+    matchBody.append(snapshot);
     context.append(box);
     refreshers.push(() => {
       const active = reviewModes.get(candidate.candidateId)?.targetId === match.id;
@@ -416,6 +434,8 @@ for (const [index, candidate] of reviewCandidatesByRecommendation(reviewBatch.ca
   const emptyChanges = element('p', 'empty-changes', 'Пока нет изменений. Покажите все поля, чтобы дополнить формат.');
   const fields = element('div', 'fields-list');
   fields.id = `fields-${index}`;
+  const groups = fieldGroups.map(group => ({ ...group, ...renderFieldGroup(group) }));
+  for (const group of groups) fields.append(group.node);
   const fieldRows = new Map();
   let titleControl, error;
   const onEdit = key => {
@@ -480,7 +500,7 @@ for (const [index, candidate] of reviewCandidatesByRecommendation(reviewBatch.ca
     }
     cells.append(findingCell, catalogValue, result.wrapper);
     row.append(cells);
-    fields.append(row);
+    groups.find(group => group.fields.some(([field]) => field === key)).content.append(row);
     fieldRows.set(key, { row, refresh(updating, base, changed) {
       row.hidden = updating && !showAll && !changed && !revealedFields().has(key);
       row.classList.toggle('is-different', updating && changed);
@@ -536,6 +556,7 @@ for (const [index, candidate] of reviewCandidatesByRecommendation(reviewBatch.ca
     editor.hidden = !editing;
     preview.hidden = editing;
     for (const [key, field] of fieldRows) field.refresh(updating, base, Object.hasOwn(changes, key));
+    for (const group of groups) group.node.hidden = group.fields.every(([key]) => fieldRows.get(key).row.hidden);
     emptyChanges.hidden = !updating || [...fieldRows.values()].some(field => !field.row.hidden);
     updateDisclosure();
     context.refresh();
