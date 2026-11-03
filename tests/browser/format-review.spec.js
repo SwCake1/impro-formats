@@ -62,6 +62,61 @@ function recommendedBatch() {
     batch.candidates = [radio, interview, duplicate, skipped, uncertain];
     return batch;
 }
+test('shows duplicate agreement in collapsed headers and preserves its original context after editing', async ({ page, openReview }) => {
+    const batch = JSON.parse(await readFile(new URL('../../tools/format-review/example-recommendations.json', import.meta.url), 'utf8'));
+    await clipboard(page);
+    await openReview(batch, { compact: true });
+    const duplicate = page.locator('[data-candidate-id="press-duplicate"]');
+    const marks = duplicate.locator('.duplicate-comparison');
+    await expect(marks).toBeVisible();
+    await expect(marks.locator('.comparison-mark')).toHaveText(['Название ≠', 'Описание ✓', 'Параметры ?']);
+    await expect(marks).toHaveAttribute('aria-label', 'Сравнение исходной находки с «Пресс-конференция»');
+    await expect(marks.locator('.comparison-mark').last()).toHaveAttribute('title', /Модератор: нет данных/);
+    await expect(duplicate.getByRole('checkbox')).not.toBeChecked();
+    await expect(page.locator('.duplicate-comparison')).toHaveCount(1);
+    await duplicate.locator('.card-toggle').click();
+    await expect(marks).toBeVisible();
+    await duplicate.getByRole('button', { name: 'Показать поля находки', exact: true }).click();
+    await duplicate.getByLabel('Название', { exact: true }).fill('Пресс-конференция');
+    await expect(duplicate.getByRole('checkbox')).toBeChecked();
+    await expect(marks.locator('.comparison-mark').first()).toHaveText('Название ≠');
+    await page.locator('#clear-selection').click();
+    await duplicate.getByRole('checkbox').check();
+    await duplicate.locator('.card-toggle').click();
+    await page.locator('#copy-agent').click();
+    const selection = JSON.parse(await copied(page));
+    expect(selection.candidates).toHaveLength(1);
+    expect(selection.candidates[0]).toMatchObject({ format: { title: 'Пресс-конференция' }, recommendation: { descriptionMatch: 'equivalent' } });
+    await page.locator('#copy-sheet').click();
+    expect((await copied(page)).split('\t')).toHaveLength(12);
+});
+
+test('does not infer semantic agreement just from a legacy duplicate label', async ({ page, openReview }) => {
+    await openReview(recommendedBatch(), { compact: true });
+    const marks = page.locator('[data-candidate-id="duplicate"] .duplicate-comparison');
+    await expect(marks).toContainText('Описание ?');
+    await expect(marks.locator('.comparison-mark').nth(1)).toHaveAccessibleName(/Описание: не оценено/);
+    await expect(marks).toBeVisible();
+});
+
+test('counts only known parameter differences in compact comparison marks', async ({ page, openReview }) => {
+    const batch = recommendedBatch();
+    const duplicate = batch.candidates.find(candidate => candidate.candidateId === 'duplicate');
+    const target = duplicate.similarFormats[0];
+    duplicate.format = structuredClone(target);
+    delete duplicate.format.id;
+    delete duplicate.format.url;
+    delete duplicate.format.reason;
+    duplicate.format.moderator = !target.moderator;
+    duplicate.format.props = !target.props;
+    duplicate.format.features = [];
+    await openReview(batch, { compact: true });
+    const marks = page.locator('[data-candidate-id="duplicate"] .comparison-mark');
+    await expect(marks).toHaveText(['Название ✓', 'Описание ✓', 'Параметры ≠ 2']);
+    await expect(marks.last()).toHaveAttribute('data-status', 'different');
+    await expect(marks.last()).toHaveAccessibleName(/Особенности: нет данных/);
+});
+
 test('opens the generated file offline with editable fields and no preselection', async ({ page, openReview }) => {
     const requests = [];
     page.on('request', request => { if (/^https?:/.test(request.url()))

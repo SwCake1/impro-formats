@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { readFile } from 'node:fs/promises';
-import { createReviewSelection, parseReviewBatch, reviewCandidatesByRecommendation, reviewClassificationOptions, reviewFieldTransfer, reviewInitialState, reviewSelectionToTsv, reviewUpdateBase } from './format-review.mjs';
+import { createReviewSelection, parseReviewBatch, reviewCandidatesByRecommendation, reviewClassificationOptions, reviewDuplicateComparison, reviewFieldTransfer, reviewInitialState, reviewSelectionToTsv, reviewUpdateBase } from './format-review.mjs';
 
 function sampleBatch() {
   return {
@@ -277,6 +277,85 @@ describe('agent recommendations', () => {
     expect(() => parseReviewBatch(input)).toThrow('у дубля нет изменений');
     input.candidates[0].recommendation = { action: 'skip', reason: 'Не формат', targetId: 'existing' };
     expect(() => parseReviewBatch(input)).toThrow('recommendation');
+  });
+});
+
+describe('duplicate agreement', () => {
+  function duplicateBatch() {
+    const batch = sampleBatch();
+    const row = batch.candidates[0];
+    Object.assign(row.format, { moderator: false, furniture: 'Нет', features: ['Первый', 'Второй'], collections: ['JAM'] });
+    row.similarFormats = [{ ...structuredClone(row.format), id: 'existing', reason: 'Те же правила' }];
+    row.recommendation = { action: 'duplicate', targetId: 'existing', reason: 'Дополнений нет', descriptionMatch: 'equivalent' };
+    return batch;
+  }
+
+  it('compares false flags, names and unordered tag sets without mutating input', () => {
+    const batch = duplicateBatch();
+    const row = batch.candidates[0];
+    row.similarFormats[0].title = '  ТЕСТОВЫЙ   ФОРМАТ  ';
+    row.similarFormats[0].features = ['второй', 'Первый', 'Первый'];
+    const original = structuredClone(batch);
+    const comparison = reviewDuplicateComparison(parseReviewBatch(batch).candidates[0]);
+    expect(comparison).toMatchObject({ title: { status: 'same' }, description: { text: 'дословно' }, parameters: { status: 'same' } });
+    expect(comparison.parameters.fields).toHaveLength(7);
+    expect(batch).toEqual(original);
+  });
+
+  it('uses agent semantics only for nonidentical known descriptions, and keeps legacy uncertainty', () => {
+    const batch = duplicateBatch();
+    const row = batch.candidates[0];
+    row.format.title = 'Другое название';
+    row.format.description = 'Другая формулировка тех же правил';
+    let comparison = reviewDuplicateComparison(parseReviewBatch(batch).candidates[0]);
+    expect(comparison.title.status).toBe('different');
+    expect(comparison.description).toEqual({ status: 'same', text: 'по смыслу' });
+    delete row.recommendation.descriptionMatch;
+    expect(reviewDuplicateComparison(parseReviewBatch(batch).candidates[0]).description.status).toBe('unknown');
+    row.recommendation.descriptionMatch = 'different';
+    expect(reviewDuplicateComparison(parseReviewBatch(batch).candidates[0]).description.status).toBe('different');
+    row.format.description = '';
+    row.recommendation.descriptionMatch = 'equivalent';
+    expect(reviewDuplicateComparison(parseReviewBatch(batch).candidates[0]).description.status).toBe('unknown');
+  });
+
+  it('does not count missing, null or empty parameters as agreement, and exposes known conflicts', () => {
+    const batch = duplicateBatch();
+    const row = batch.candidates[0];
+    row.format.moderator = null;
+    row.format.furniture = '';
+    row.format.features = [];
+    row.format.collections = [];
+    delete row.similarFormats[0].props;
+    let comparison = reviewDuplicateComparison(parseReviewBatch(batch).candidates[0]);
+    expect(comparison.parameters).toMatchObject({ status: 'partial', text: 'частично (2/7)' });
+    expect(comparison.parameters.fields.filter(field => field.status === 'unknown')).toHaveLength(5);
+    row.format.audienceOnStage = true;
+    comparison = reviewDuplicateComparison(parseReviewBatch(batch).candidates[0]);
+    expect(comparison.parameters).toMatchObject({ status: 'different', text: 'есть отличия (1)' });
+    row.format.audienceOnStage = null;
+    row.format.forms = [];
+    expect(reviewDuplicateComparison(parseReviewBatch(batch).candidates[0]).parameters.status).toBe('unknown');
+  });
+
+  it('keeps agreement as context after manual edits and excludes it from spreadsheet columns', () => {
+    const batch = parseReviewBatch(duplicateBatch());
+    const draft = { ...batch.candidates[0].format, title: 'Ручное новое название' };
+    const selection = createReviewSelection(batch, new Set(['one']), new Map([['one', draft]]));
+    expect(selection.candidates[0].recommendation.descriptionMatch).toBe('equivalent');
+    expect(reviewDuplicateComparison(batch.candidates[0]).title.status).toBe('same');
+    expect(reviewSelectionToTsv(selection).split('\t')).toHaveLength(12);
+    expect(reviewSelectionToTsv(selection)).not.toContain('equivalent');
+  });
+
+  it('validates the semantic assessment and limits it to duplicate recommendations', () => {
+    const batch = duplicateBatch();
+    batch.candidates[0].recommendation.descriptionMatch = 'same';
+    expect(() => parseReviewBatch(batch)).toThrow('recommendation.descriptionMatch');
+    batch.candidates[0].recommendation = { action: 'create', reason: 'Новый', descriptionMatch: 'equivalent' };
+    expect(() => parseReviewBatch(batch)).toThrow('recommendation.descriptionMatch');
+    delete batch.candidates[0].recommendation.descriptionMatch;
+    expect(reviewDuplicateComparison(parseReviewBatch(batch).candidates[0])).toBeNull();
   });
 });
 

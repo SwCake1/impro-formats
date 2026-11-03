@@ -134,6 +134,7 @@
       "recommendation": {
         "action": "duplicate",
         "targetId": "press-konferentsiya",
+        "descriptionMatch": "equivalent",
         "reason": "Дубль пресс-конференции: та же механика, полезных дополнений нет."
       }
     },

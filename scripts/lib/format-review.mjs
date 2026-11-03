@@ -181,11 +181,17 @@ export function reviewFormatChanges(before, after) {
 }
 
 function parseRecommendation(value, candidate, path) {
-  const row = object(value, path, ['action', 'reason', 'targetId', 'changes']);
+  const row = object(value, path, ['action', 'reason', 'targetId', 'changes', 'descriptionMatch']);
   if (!Object.hasOwn(REVIEW_RECOMMENDATIONS, row.action)) {
     throw new ReviewDataError(`${path}.action`, 'ожидается create, update, duplicate, skip или review');
   }
   const result = { action: row.action, reason: text(row.reason, `${path}.reason`, true) };
+  if (row.descriptionMatch !== undefined) {
+    if (row.action !== 'duplicate' || !['equivalent', 'different', 'unknown'].includes(row.descriptionMatch)) {
+      throw new ReviewDataError(`${path}.descriptionMatch`, 'только для дубля: equivalent, different или unknown');
+    }
+    result.descriptionMatch = row.descriptionMatch;
+  }
   if (!['update', 'duplicate'].includes(row.action)) {
     if (row.targetId !== undefined || row.changes !== undefined) {
       throw new ReviewDataError(path, 'цель и изменения допустимы только для обновления или дубля');
@@ -236,6 +242,41 @@ function parseRecommendation(value, candidate, path) {
   }
   result.changes = Object.fromEntries(keys.map(key => [key, after[key]]));
   return result;
+}
+
+// Compare the original finding with the recommended target, never the edited draft.
+export function reviewDuplicateComparison(candidate) {
+  if (candidate.recommendation?.action !== 'duplicate') return null;
+  const target = candidate.similarFormats.find(match => match.id === candidate.recommendation.targetId);
+  const finding = candidate.format;
+  const normalized = value => value.normalize('NFKC').trim().replace(/\s+/gu, ' ').toLocaleLowerCase('ru');
+  const known = value => typeof value === 'boolean' || (typeof value === 'string' && value.trim() !== '')
+    || (Array.isArray(value) && value.length > 0);
+  const comparable = value => Array.isArray(value)
+    ? JSON.stringify([...new Set(value.map(normalized))].sort()) : typeof value === 'string' ? normalized(value) : value;
+  const compare = key => !known(finding[key]) || !known(target[key]) ? 'unknown'
+    : comparable(finding[key]) === comparable(target[key]) ? 'same' : 'different';
+  const fields = [
+    ['moderator', 'Модератор'], ['audienceOnStage', 'Зритель на сцене'], ['props', 'Реквизит'],
+    ['furniture', 'Мебель'], ['forms', 'Форма'], ['features', 'Особенности'], ['collections', 'Подборки'],
+  ].map(([key, label]) => ({ key, label, status: compare(key) }));
+  const same = fields.filter(field => field.status === 'same').length;
+  const different = fields.filter(field => field.status === 'different').length;
+  const parameters = different ? { status: 'different', text: `есть отличия (${different})` }
+    : same === fields.length ? { status: 'same', text: 'совпали' }
+      : same ? { status: 'partial', text: `частично (${same}/${fields.length})` } : { status: 'unknown', text: 'нет данных' };
+  const hasDescriptions = known(finding.description) && known(target.description);
+  const description = hasDescriptions && finding.description.trim() === target.description.trim() ? { status: 'same', text: 'дословно' }
+    : ({
+      equivalent: { status: 'same', text: 'по смыслу' },
+      different: { status: 'different', text: 'отличается' },
+      unknown: { status: 'unknown', text: 'не оценено' },
+    }[hasDescriptions ? candidate.recommendation.descriptionMatch ?? 'unknown' : 'unknown']);
+  return {
+    targetId: target.id, targetTitle: target.title,
+    title: { status: compare('title'), text: compare('title') === 'same' ? 'совпало' : 'другое' },
+    description, parameters: { ...parameters, fields },
+  };
 }
 
 export function reviewInitialState(candidate) {

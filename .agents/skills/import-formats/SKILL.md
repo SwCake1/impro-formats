@@ -15,6 +15,8 @@ For plausible matches, include the existing format's complete snapshot, permanen
 
 Assign every candidate a `recommendation` using the documented action codes, with one concise sentence explaining the decision and proposed field values for updates. Name the decisive difference, addition, or question; do not repeat the full description or generic import policy. Keep match reasons equally concise; avoid retelling descriptions or generic import policy. Existing catalog data takes priority: missing source fields are not changes. Mark the same format without useful additions as `duplicate`; use `update` only for useful additions that preserve existing information, and `review` for uncertainty or conflicting known values. The tool supplies consistent emoji and initial selection from these recommendations.
 
+For every `duplicate`, set `recommendation.descriptionMatch` to `equivalent`, `different`, or `unknown` by comparing the rules with its target. The tool separately compares names and known requirement/tag values; missing values never count as matches.
+
 Keep each batch in its own `ignore/format-review/<batch-name>/` folder: `batch.json`, `catalog.json`, `review.html`, and a brief `review-state.json` recording `batchId`, file paths, source, and progress so work can resume after review.
 
 From the project root:

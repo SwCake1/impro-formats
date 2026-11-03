@@ -354,6 +354,29 @@ for (const [index, candidate] of reviewCandidatesByRecommendation(reviewBatch.ca
   const cardSummary = element('p', 'card-summary', candidate.recommendation
     ? `Агент: ${candidate.recommendation.reason}` : candidate.format.description);
   titleGroup.append(heading, cardSummary);
+  const comparison = reviewDuplicateComparison(candidate);
+  if (comparison) {
+    const evidence = element('div', 'duplicate-comparison');
+    evidence.setAttribute('role', 'group');
+    evidence.setAttribute('aria-label', `Сравнение исходной находки с «${comparison.targetTitle}»`);
+    const states = { same: 'совпало', different: 'отличается', unknown: 'нет данных' };
+    for (const [key, label] of [['title', 'Название'], ['description', 'Описание'], ['parameters', 'Параметры']]) {
+      const { status, text } = comparison[key];
+      const symbol = status === 'same' ? '✓' : status === 'different' ? '≠' : '?';
+      const differences = key === 'parameters' && status === 'different'
+        ? ` ${comparison.parameters.fields.filter(field => field.status === 'different').length}` : '';
+      const item = element('span', 'comparison-mark', `${label} ${symbol}${differences}`);
+      item.dataset.status = status;
+      item.title = `${label}: ${text}`;
+      if (key === 'description') item.title += '. По смыслу оценивает агент; дословное совпадение — сравнение текстов.';
+      if (key === 'parameters') {
+        item.title += '\n' + comparison.parameters.fields.map(field => `${field.label}: ${states[field.status]}`).join('\n');
+      }
+      item.setAttribute('aria-label', item.title.replaceAll('\n', '. '));
+      evidence.append(item);
+    }
+    titleGroup.append(evidence);
+  }
   const body = element('div', 'card-body');
   body.id = `format-body-${index}`;
   body.hidden = true;
