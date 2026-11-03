@@ -24,6 +24,7 @@ export interface FilterState {
   formTag: string | null;
   featureTags: string[];
   collectionTags: string[];
+  hasVideo: boolean;
   moderator: TriState;
   audience: TriState;
   props: TriState;

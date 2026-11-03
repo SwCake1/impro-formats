@@ -27,6 +27,7 @@ export function readFiltersFromUrl(url: URL): FilterState {
     formTag: form && !moved.has(form) ? form : null,
     featureTags: [...new Set(features.filter((tag) => !moved.has(tag)))],
     collectionTags,
+    hasVideo: url.searchParams.get('video') === 'yes',
     moderator: triState('moderator'),
     audience: triState('audience'),
     props: triState('props'),
@@ -43,6 +44,7 @@ export function writeFiltersToUrl(filters: FilterState, currentUrl: URL): URL {
   if (filters.formTag) url.searchParams.set('form', filters.formTag);
   filters.featureTags.forEach((tag) => url.searchParams.append('feature', tag));
   filters.collectionTags.forEach((tag) => url.searchParams.append('collection', tag));
+  if (filters.hasVideo) url.searchParams.set('video', 'yes');
   if (filters.moderator !== 'any') url.searchParams.set('moderator', filters.moderator);
   if (filters.audience !== 'any') url.searchParams.set('audience', filters.audience);
   if (filters.props !== 'any') url.searchParams.set('props', filters.props);

@@ -8,6 +8,7 @@ describe('URL state', () => {
       formTag: 'Короткая форма',
       featureTags: ['Музыкальные', 'Экстремальные'],
       collectionTags: ['JAM', 'Иностранные'],
+      hasVideo: true,
       moderator: 'no',
       audience: 'any',
       props: 'yes',
@@ -20,6 +21,7 @@ describe('URL state', () => {
       formTag: 'Короткая форма',
       featureTags: ['Музыкальные', 'Экстремальные'],
       collectionTags: ['JAM', 'Иностранные'],
+      hasVideo: true,
       moderator: 'no',
       audience: 'any',
       props: 'yes',
@@ -27,6 +29,15 @@ describe('URL state', () => {
       selectedId: '2-komnaty',
     });
     expect(url.searchParams.has('unused')).toBe(false);
+    expect(url.searchParams.get('video')).toBe('yes');
+  });
+
+  it('only enables video filtering for video=yes and omits it when disabled', () => {
+    for (const value of ['', 'no', 'maybe']) {
+      const filters = readFiltersFromUrl(new URL(`https://example.test/?video=${value}`));
+      expect(filters.hasVideo).toBe(false);
+      expect(writeFiltersToUrl(filters, new URL('https://example.test/')).searchParams.has('video')).toBe(false);
+    }
   });
 
   it('falls back for invalid enum values', () => {

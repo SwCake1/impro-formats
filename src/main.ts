@@ -28,6 +28,7 @@ const activeFiltersCount = element<HTMLElement>('#activeFiltersCount');
 const formFilters = element<HTMLElement>('#formFilters');
 const featureFilters = element<HTMLElement>('#featureFilters');
 const collectionFilters = element<HTMLElement>('#collectionFilters');
+const videoFilter = element<HTMLInputElement>('#videoFilter');
 const moderatorFilter = element<HTMLSelectElement>('#moderatorFilter');
 const audienceFilter = element<HTMLSelectElement>('#audienceFilter');
 const propsFilter = element<HTMLSelectElement>('#propsFilter');
@@ -170,6 +171,7 @@ function renderFilterButtons(): void {
 function syncControls(): void {
   searchInput.value = filters.query;
   clearSearch.hidden = !filters.query;
+  videoFilter.checked = filters.hasVideo;
   moderatorFilter.value = filters.moderator;
   audienceFilter.value = filters.audience;
   propsFilter.value = filters.props;
@@ -232,6 +234,7 @@ function renderSelectedFilters(): void {
     const labels = { none: 'Без мебели', chairs: 'Нужны стулья', tables: 'Нужен стол' };
     add(labels[filters.furniture], 'furniture', () => { filters.furniture = 'any'; });
   }
+  if (filters.hasVideo) add('Есть видео', 'video', () => { filters.hasVideo = false; });
   container.hidden = !container.childElementCount;
 }
 
@@ -576,6 +579,10 @@ clearSearch.addEventListener('click', () => {
   filters.query = '';
   applyFilterChange();
   searchInput.focus();
+});
+videoFilter.addEventListener('change', () => {
+  filters.hasVideo = videoFilter.checked;
+  applyFilterChange();
 });
 [moderatorFilter, audienceFilter, propsFilter, furnitureFilter].forEach((select) => {
   select.addEventListener('change', updateSelectFilters);

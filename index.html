@@ -653,7 +653,7 @@
             </div>
           </section>
 
-          <section class="filter-disclosure" id="collectionsDisclosure" aria-labelledby="collectionsTitle">
+          <section class="filter-disclosure" id="collectionsDisclosure" aria-labelledby="collectionsTitle" hidden>
             <h3 class="filter-disclosure__title" id="collectionsTitle">Подборки <span id="collectionsCount"></span></h3>
             <div class="filter-disclosure__content">
               <div id="collectionFilters" class="tape-filters"></div>
@@ -699,6 +699,12 @@
               </label>
             </div>
           </section>
+
+          <label class="video-filter">
+            <input id="videoFilter" type="checkbox" />
+            <span>Есть видео</span>
+          </label>
+
           <button id="showFilterResults" class="button button--primary filters-results-button" type="button">Показать форматы</button>
         </div>
       </aside>

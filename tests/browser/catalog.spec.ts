@@ -325,6 +325,51 @@ test('reuses filter buttons during search and preserves their selection', async 
   await expect(button).toHaveAttribute('aria-pressed', 'true');
 });
 
+test('filters formats with videos by keyboard, restores the URL and resets the filter', async ({ page }, info) => {
+  await page.route('**/data/formats.json', route => route.fulfill({
+    json: { ...catalog, records: [{ ...record, video: 'https://example.test/video' }, catalog.records[1]] },
+  }));
+  await page.goto('/');
+  await expect(page.locator('.format-row')).toHaveCount(2);
+  if (info.project.name === 'mobile') await page.locator('#filtersToggle').click();
+  const checkbox = page.getByRole('checkbox', { name: 'Есть видео' });
+  await checkbox.focus();
+  await page.keyboard.press('Space');
+  await expect(checkbox).toBeChecked();
+  await expect(checkbox).toBeFocused();
+  await expect(page.locator('.format-row')).toHaveCount(1);
+  await expect(page.locator('.format-row')).toHaveAttribute('data-id', record.id);
+  await expect(page.locator('#activeFiltersCount')).toHaveText('1');
+  await expect(page).toHaveURL(/video=yes/);
+  await page.reload();
+  await expect(page.locator('.format-row')).toHaveCount(1);
+  if (info.project.name === 'mobile') await page.locator('#filtersToggle').click();
+  await expect(checkbox).toBeChecked();
+  await page.getByRole('button', { name: 'Убрать фильтр: Есть видео', exact: true }).click();
+  await expect(checkbox).not.toBeChecked();
+  await expect(page.locator('.format-row')).toHaveCount(2);
+  await expect(page).not.toHaveURL(/video=/);
+  await checkbox.check();
+  await page.locator('#resetFiltersTop').click();
+  await expect(checkbox).not.toBeChecked();
+  await expect(page.locator('.format-row')).toHaveCount(2);
+  await expect(page.locator('#activeFiltersCount')).toBeHidden();
+  await expect(page).not.toHaveURL(/video=/);
+});
+
+test('hides the collections section while keeping shared collection filters removable', async ({ page }, info) => {
+  await page.goto('/?filters=3&collection=JAM');
+  await expect(page.locator('.format-row')).toHaveCount(2);
+  if (info.project.name === 'mobile') await page.locator('#filtersToggle').click();
+  await expect(page.locator('#collectionsDisclosure')).toBeHidden();
+  await expect(page.getByRole('heading', { name: 'Подборки' })).toHaveCount(0);
+  const selected = page.getByRole('button', { name: 'Убрать фильтр: Подборка: JAM', exact: true });
+  await expect(selected).toBeVisible();
+  await selected.click();
+  await expect(page).not.toHaveURL(/collection=/);
+  await expect(page.locator('#activeFiltersCount')).toBeHidden();
+});
+
 test('does not load analytics in development', async ({ page }) => {
   const analytics: string[] = [];
   page.on('request', request => {

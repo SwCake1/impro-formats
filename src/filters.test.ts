@@ -55,6 +55,20 @@ describe('filterFormats', () => {
     expect(filterFormats(records, withFilters({ props: 'no' })).map((item) => item.title)).toEqual(['Ёлка']);
   });
 
+  it('filters by video presence and combines it with other filters', () => {
+    const videoRecords = parseFormatsJson({ schemaVersion: 3, generatedAt: '2026-11-03T00:00:00Z', records: [
+      { ...classified[0], video: 'https://example.test/video' },
+      { ...classified[1], video: '  \n  ' },
+      { ...classified[2], video: 'Запись выступления' },
+      classified[3],
+    ] });
+    expect(filterFormats(videoRecords, withFilters({}))).toHaveLength(4);
+    expect(filterFormats(videoRecords, withFilters({ hasVideo: true })).map(item => item.id)).toEqual(['a', 'c']);
+    expect(filterFormats(videoRecords, withFilters({ hasVideo: true, featureTags: ['Музыкальные'] })).map(item => item.id)).toEqual(['a']);
+    expect(filterFormats(records, withFilters({ hasVideo: true }))).toEqual([]);
+    expect(countActiveFilters(withFilters({ hasVideo: true, featureTags: ['Музыкальные'] }))).toBe(2);
+  });
+
   it('filters furniture and sorts using Russian collation', () => {
     expect(filterFormats(records, withFilters({ furniture: 'chairs' })).map((item) => item.title)).toEqual(['Стол']);
     expect(filterFormats(records, withFilters({ furniture: 'none' })).map((item) => item.title)).toEqual(['Армандо', 'Ёлка']);

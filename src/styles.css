@@ -192,6 +192,28 @@ body.is-resizing-panels {
 .filter-disclosure__title span { color: var(--accent-strong); }
 .filter-disclosure__content { padding-bottom: 3px; }
 
+.video-filter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  margin-top: 16px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.video-filter input {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--accent-strong);
+  cursor: pointer;
+}
+
 .selected-filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
 .selected-filter {
   max-width: 100%;

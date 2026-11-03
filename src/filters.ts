@@ -8,6 +8,7 @@ export const DEFAULT_FILTERS: FilterState = {
   formTag: null,
   featureTags: [],
   collectionTags: [],
+  hasVideo: false,
   moderator: 'any',
   audience: 'any',
   props: 'any',
@@ -29,6 +30,7 @@ export function filterFormats(records: FormatRecord[], filters: FilterState): Fo
     .filter((record) => !filters.formTag || record.forms.includes(filters.formTag))
     .filter((record) => filters.featureTags.every((tag) => record.features.includes(tag)))
     .filter((record) => filters.collectionTags.length === 0 || filters.collectionTags.some((tag) => record.collections.includes(tag)))
+    .filter((record) => !filters.hasVideo || Boolean(record.video.trim()))
     .filter((record) => matchesTriState(record.moderator, filters.moderator))
     .filter((record) => matchesTriState(record.audienceOnStage, filters.audience))
     .filter((record) => matchesTriState(record.props, filters.props))
@@ -45,6 +47,7 @@ export function countActiveFilters(filters: FilterState): number {
     + Number(Boolean(filters.formTag))
     + filters.featureTags.length
     + filters.collectionTags.length
+    + Number(filters.hasVideo)
     + Number(filters.moderator !== 'any')
     + Number(filters.audience !== 'any')
     + Number(filters.props !== 'any')
