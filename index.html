@@ -447,8 +447,9 @@
           position: static;
           display: block;
           max-height: 0;
-          padding: 0;
-          border: 0;
+          /* Keep horizontal insets stable while the panel collapses. */
+          padding: 0 16px;
+          border-width: 0 1px;
           background: transparent;
           overflow: hidden;
           opacity: 0;
