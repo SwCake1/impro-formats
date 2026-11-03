@@ -3,6 +3,20 @@
   "framework": "vite",
   "buildCommand": "npm run build:published",
   "outputDirectory": "dist",
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "improformats.ru" }],
+      "destination": "https://www.improformats.ru/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "impro-formats.vercel.app" }],
+      "destination": "https://www.improformats.ru/:path*",
+      "permanent": true
+    }
+  ],
   "headers": [
     {
       "source": "/data/formats.json",
