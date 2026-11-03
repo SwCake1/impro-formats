@@ -16,14 +16,17 @@
   </header>
   <main class="shell">
     <div id="review-width-handle" class="width-handle" role="separator" aria-orientation="vertical" aria-label="Ширина панелей" tabindex="0" title="Перетащите край, чтобы изменить ширину. Стрелки ← → — изменить, двойной клик — сбросить."></div>
+    <div class="review-intro"><p>Посмотрите находки и выберите, что добавить в каталог.</p><span id="save-status" role="status" aria-live="polite">Проверяем сохранённые правки…</span></div>
+    <nav id="category-filters" class="category-filters" aria-label="Категории форматов"></nav>
     <div class="review-actions" role="group" aria-label="Действия со всеми форматами">
       <div class="action-group">
-        <button id="select-all" type="button" class="batch-action">Выделить все</button>
-        <button id="clear-selection" type="button" class="batch-action">Убрать все выделения</button>
+        <button id="select-all" type="button" class="batch-action">Выбрать видимые</button>
+        <button id="clear-selection" type="button" class="batch-action">Снять выбор</button>
       </div>
       <div class="action-group">
         <button id="expand-all" type="button" class="batch-action">Развернуть всё</button>
         <button id="collapse-all" type="button" class="batch-action">Свернуть всё</button>
+        <button id="reset-review" type="button" class="batch-action reset-action">Сбросить правки</button>
       </div>
     </div>
     <p id="empty" class="empty" hidden>В этой подборке пока нет форматов.</p>
@@ -32,10 +35,10 @@
   </main>
   <footer class="export-bar">
     <div class="shell export-inner">
-      <strong id="selection-count">Выбрано: 0</strong>
+      <div class="selection-summary"><strong id="selection-count">Выбрано: 0</strong><span id="selection-breakdown"></span></div>
       <div class="export-actions">
-        <button id="copy-agent" class="button secondary" disabled>Скопировать для агента</button>
-        <button id="copy-sheet" class="button primary" disabled>Скопировать новые для таблицы (0)</button>
+        <button id="copy-sheet" class="button secondary" disabled>Скопировать новые для таблицы (0)</button>
+        <button id="copy-agent" class="button primary" disabled>Скопировать для агента</button>
       </div>
     </div>
     <p id="status" class="shell status" role="status" aria-live="polite"></p>
@@ -46,6 +49,14 @@
     <label for="manual-text">Данные для ручного копирования</label>
     <textarea id="manual-text" rows="12" readonly spellcheck="false"></textarea>
     <p id="manual-tip" class="muted"></p>
+  </dialog>
+  <dialog id="reset-dialog" aria-labelledby="reset-title" aria-describedby="reset-help">
+    <h2 id="reset-title">Сбросить правки?</h2>
+    <p id="reset-help">Все поля и выбор форматов в этой подборке вернутся к исходным значениям. Сохранённые правки будут удалены.</p>
+    <div class="reset-dialog-actions">
+      <button id="cancel-reset" type="button" class="button secondary" autofocus>Отмена</button>
+      <button id="confirm-reset" type="button" class="button danger">Сбросить</button>
+    </div>
   </dialog>
   <script id="review-data" type="application/json">@@REVIEW_DATA@@</script>
   <script type="module">/* @@REVIEW_CODE@@ */</script>
