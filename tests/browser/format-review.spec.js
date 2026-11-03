@@ -120,6 +120,8 @@ test('counts only known parameter differences in compact comparison marks', asyn
     await expect(marks.last()).toHaveAttribute('data-status', 'different');
     await expect(marks.last()).toHaveAccessibleName(/Особенности: нет данных/);
     const tooltip = page.locator(`#${await marks.last().getAttribute('aria-describedby')}`);
+    // Finish scrolling before hovering: scroll events dismiss open tooltips.
+    await marks.last().scrollIntoViewIfNeeded();
     await marks.last().hover();
     await expect(tooltip).toBeVisible();
     await expect(tooltip.locator('tbody th')).toHaveText(['Модератор', 'Реквизит']);

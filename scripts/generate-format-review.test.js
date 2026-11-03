@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { mkdtemp, readFile, writeFile, symlink, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, writeFile, symlink, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -55,6 +55,8 @@ describe('standalone review generator', () => {
     const forbidden = fileURLToPath(new URL(`../${folder}/`, import.meta.url));
     await expect(generateReview({ inputPath: examplePath, outputPath: join(forbidden, 'must-not-exist.html') }))
       .rejects.toThrow('вне public/ и dist/');
+    // The symlink target must exist even when no build has created dist yet.
+    await mkdir(forbidden, { recursive: true });
     const linked = join(root, 'alias');
     await symlink(forbidden, linked, 'dir');
     await expect(generateReview({ inputPath: examplePath, outputPath: join(linked, 'must-not-exist.html') }))
