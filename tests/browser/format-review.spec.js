@@ -51,6 +51,21 @@ async function clipboard(page, mode = 'success') {
 async function copied(page) {
     return page.evaluate(() => window.reviewCopied);
 }
+async function expectFitsViewport(page) {
+    const layout = await page.evaluate(() => ({
+        viewport: innerWidth,
+        clientWidth: document.documentElement.clientWidth,
+        scrollWidth: document.documentElement.scrollWidth,
+        overflowing: [...document.querySelectorAll('body *')].flatMap(node => {
+            const rect = node.getBoundingClientRect();
+            return rect.right > innerWidth || rect.left < 0 ? [{
+                tag: node.tagName, id: node.id, className: node.className,
+                left: rect.left, right: rect.right,
+            }] : [];
+        }),
+    }));
+    expect(layout.scrollWidth, JSON.stringify(layout)).toBeLessThanOrEqual(layout.viewport);
+}
 function recommendedBatch() {
     const batch = structuredClone(example);
     const [radio, interview] = batch.candidates;
@@ -294,7 +309,7 @@ test('supports review by keyboard and fits the configured viewport', async ({ pa
     await expect(page.locator('#copy-agent')).toBeFocused();
     await page.keyboard.press('Enter');
     expect(JSON.parse((await copied(page))).candidates[0].format.title).toBe('Название с клавиатуры');
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await expectFitsViewport(page);
 });
 test('shows a useful empty state', async ({ page, openReview }) => {
     await openReview({ ...example, candidates: [] });
@@ -1159,7 +1174,7 @@ test('filters categories without losing drafts or exporting only the visible sel
     await filters.locator('[data-category="duplicate"]').click();
     await expect(duplicate.locator('.finding-description')).toBeVisible();
     await expect(duplicate.getByRole('checkbox')).toBeChecked();
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await expectFitsViewport(page);
 });
 
 test('reveals a selected invalid draft hidden by a category filter', async ({ page, openReview }) => {
