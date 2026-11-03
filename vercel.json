@@ -5,9 +5,21 @@
   "outputDirectory": "dist",
   "redirects": [
     {
+      "source": "/",
+      "has": [{ "type": "host", "value": "improformats.ru" }],
+      "destination": "https://www.improformats.ru/",
+      "permanent": true
+    },
+    {
       "source": "/:path*",
       "has": [{ "type": "host", "value": "improformats.ru" }],
       "destination": "https://www.improformats.ru/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/",
+      "has": [{ "type": "host", "value": "impro-formats.vercel.app" }],
+      "destination": "https://www.improformats.ru/",
       "permanent": true
     },
     {
