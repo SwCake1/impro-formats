@@ -37,7 +37,7 @@ main.shell { margin-top: 24px; position: relative; }
 .category-icon { font-size: 18px; line-height: 1; }
 .width-handle { position: absolute; inset: 0 -15px 0 auto; width: 12px; cursor: ew-resize; touch-action: none; }
 .width-handle::before { content: ''; position: absolute; inset: 0 5px; border-radius: 2px; background: transparent; }
-.width-handle::after { content: '⋮'; position: sticky; top: 20px; display: block; margin-top: 8px; text-align: center; color: #99a299; line-height: 28px; }
+.width-handle::after { content: '⋮'; position: sticky; top: 20px; display: block; margin-top: 8px; text-align: center; color: #99a299; line-height: 28px; overflow: clip; }
 .width-handle:hover::before, .width-handle:focus-visible::before { background: #c8d7ce; }
 .is-resizing, .is-resizing * { cursor: ew-resize !important; user-select: none !important; }
 .review-actions, .action-group { display: flex; gap: 6px; }
