@@ -397,7 +397,8 @@ function renderDetail(): void {
   detailDescription.textContent = record.description || 'Описание пока не добавлено.';
   detailTags.replaceChildren();
   [...record.forms, ...record.features].forEach((tag) => appendTag(detailTags, tag));
-  record.collections.forEach((tag) => appendTag(detailTags, `Подборка: ${tag}`));
+  // Подборки временно скрыты в открытом формате.
+  // record.collections.forEach((tag) => appendTag(detailTags, `Подборка: ${tag}`));
 
   detailRequirements.replaceChildren();
   if (record.moderator === true) addRequirement('moderator', 'Модератор');
