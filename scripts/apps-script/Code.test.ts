@@ -150,12 +150,13 @@ describe('Apps Script Publish', () => {
       insertSheet: vi.fn(() => { exists = true; return target; }),
       toast: vi.fn(),
     };
+    const newRichTextValue = vi.fn(() => ({
+      setText: (text: string) => ({ build: () => ({ text }) }),
+    }));
     const context = {
       SpreadsheetApp: {
         getActiveSpreadsheet: () => document,
-        newRichTextValue: () => ({
-          setText: (text: string) => ({ build: () => ({ text }) }),
-        }),
+        newRichTextValue,
         flush: vi.fn(() => events.push('flush')),
       },
       PropertiesService: { getScriptProperties: () => ({ getProperty }) },
@@ -171,7 +172,7 @@ describe('Apps Script Publish', () => {
       failIdWrite: () => { failIdWrite = true; },
       rejectDeploy: (status: number) => { deployStatus = status; },
       failDeploy: () => { deployError = new Error('Request failed: ' + configuredHook); },
-      document, work, write, lock, deploy, getProperty, events, idWrite,
+      document, work, write, lock, deploy, getProperty, events, idWrite, newRichTextValue,
     };
   }
 
@@ -397,6 +398,31 @@ describe('Apps Script Publish', () => {
     expect(state.values()[0][11]).toBe('Видео');
     expect(state.values()[1][11]).toBe(video);
     expect(parseFormatsJson(parsePublishedRows(state.values()))[0].video).toBe(video);
+  });
+
+  it('reduces RichText creation for repeated text while preserving the snapshot and clearing its old tail', () => {
+    const repeated = '=A1\nПовторяющийся текст';
+    const records = Array.from({ length: 12 }, (_, index) => [
+      'format-' + index, 'Формат ' + index, repeated,
+      'TRUE', 'FALSE', '', 'constructor', '__proto__',
+      'Короткая форма', 'Угадайки', 'JAM, Иностранные', repeated,
+    ]);
+    const draft = [headers, ...records];
+    const original = draft.map(record => [...record]);
+    const state = environment(draft, [...original, ['removed', ...row.slice(1)]]);
+
+    expect(state.run()).toBe(records.length);
+    expect(state.values()).toEqual([...original, Array(12).fill('')]);
+    expect(draft).toEqual(original);
+    expect(state.write).toHaveBeenCalledTimes(1);
+    expect(state.newRichTextValue.mock.calls.length).toBeLessThan(state.values().flat().length / 2);
+    expect(parseFormatsJson(parsePublishedRows(state.values()))).toHaveLength(records.length);
+
+    records[0][2] = 'Изменённое описание';
+    state.run();
+    expect(state.values()[1][2]).toBe('Изменённое описание');
+    expect(state.values()[2][2]).toBe(repeated);
+    expect(state.values()[1][11]).toBe(repeated);
   });
 
   it('posts the saved snapshot to the configured hook only after flushing Sheets', () => {

@@ -23,14 +23,23 @@ function onOpen() {
 }
 
 function publishCatalog() {
+  const startedAt = Date.now();
+  let stageStartedAt = startedAt;
+  const logStage = (stage) => {
+    console.log('[Publish] ' + stage + ': ' + (Date.now() - stageStartedAt) + ' мс');
+    stageStartedAt = Date.now();
+  };
+
   const lock = LockService.getDocumentLock();
   if (!lock) throw new Error('Запустите Publish из своей таблицы.');
   lock.waitLock(30000);
 
   try {
+    logStage('Ожидание блокировки');
     // Проверяем весь каталог до любых изменений листа «Опубликовано».
     const { sheet, records, newIds } = readFormats_();
     const deployHookUrl = readDeployHookUrl_();
+    logStage('Чтение и проверка каталога и настройки хука');
     // Сначала закрепляем новые id в рабочем листе. При повторном Publish они сохранятся.
     newIds.forEach(({ row, id }) => {
       const cell = sheet.getRange(row, 1);
@@ -40,6 +49,7 @@ function publishCatalog() {
       cell.setValue(id);
     });
     if (newIds.length) SpreadsheetApp.flush();
+    logStage('Запись новых id (' + newIds.length + ')');
     const rows = snapshotRows_(records);
     const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
     let published = spreadsheet.getSheetByName('Опубликовано');
@@ -51,11 +61,19 @@ function publishCatalog() {
     // Пустые строки в конце удаляют остатки более длинного прежнего снимка.
     // Новый снимок и очистку хвоста отправляем одной записью, без clear().
     const height = Math.max(rows.length, published.getLastRow());
+    // Одинаковый текст использует готовый RichTextValue только в пределах этого Publish.
+    const richTextByText = new Map();
     const values = Array.from({ length: height }, (_, index) => {
       const row = rows[index] || Array(CATALOG_HEADERS.length).fill('');
       // RichText записывает текст, в том числе начинающийся с «=», без формул.
-      return row.map((text) => SpreadsheetApp.newRichTextValue().setText(text).build());
+      return row.map((text) => {
+        if (!richTextByText.has(text)) {
+          richTextByText.set(text, SpreadsheetApp.newRichTextValue().setText(text).build());
+        }
+        return richTextByText.get(text);
+      });
     });
+    logStage('Подготовка снимка (' + records.length + ' форматов)');
 
     if (published.getMaxRows() < height) {
       published.insertRowsAfter(published.getMaxRows(), height - published.getMaxRows());
@@ -68,8 +86,10 @@ function publishCatalog() {
 
     published.getRange(1, 1, height, CATALOG_HEADERS.length).setRichTextValues(values);
     SpreadsheetApp.flush();
+    logStage('Запись снимка и flush');
     // Сборка читает уже сохранённые значения, а не рабочие ячейки.
     triggerDeployment_(deployHookUrl);
+    logStage('Запрос к Vercel');
     const message = 'Снимок «Опубликовано» сохранён. Форматов: ' + records.length
       + (newIds.length ? '. Создано id: ' + newIds.length : '')
       + '. Запрос на сборку сайта отправлен.';
@@ -78,6 +98,7 @@ function publishCatalog() {
     return records.length;
   } finally {
     lock.releaseLock();
+    console.log('[Publish] Всего: ' + (Date.now() - startedAt) + ' мс');
   }
 }
 
