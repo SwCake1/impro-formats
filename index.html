@@ -287,7 +287,7 @@
       .results__heading {
         position: sticky;
         z-index: 2;
-        top: 18px;
+        top: calc(var(--portal-header-height) + 18px);
         margin-bottom: 12px;
         padding: 18px 20px;
         border: 1px solid var(--line);
@@ -381,10 +381,10 @@
 
       .filters {
         position: sticky;
-        top: 18px;
+        top: calc(var(--portal-header-height) + 18px);
         padding: 16px;
         border-radius: 12px;
-        max-height: calc(100dvh - 36px);
+        max-height: calc(100dvh - var(--portal-header-height) - 36px);
         overflow-y: auto;
         scrollbar-width: thin;
         container-type: inline-size;
@@ -500,27 +500,21 @@
       <div class="portal-header" data-portal-root="./">
         <nav class="portal-nav" aria-label="Основная навигация">
           <a class="portal-brand" href="./" data-formats-link>ImproFormats</a>
-          <a class="portal-section" href="./" data-formats-link aria-current="page">Форматы</a>
-          <div class="portal-tools">
-            <a class="portal-section" href="./tools/">Инструменты</a>
-            <details class="portal-picker">
-              <summary aria-label="Выбрать инструмент"><span aria-hidden="true">⌄</span></summary>
-              <div class="portal-menu">
-                <a class="portal-all-tools" href="./tools/">Все инструменты</a>
-                <div class="portal-menu-links"></div>
-              </div>
-            </details>
-          </div>
+          <details class="portal-picker">
+            <summary aria-label="Инструменты. Выбрать раздел">
+              <span class="portal-current-name">Инструменты</span>
+              <svg class="portal-chevron" viewBox="0 0 12 8" aria-hidden="true"><path d="m1 1.5 5 5 5-5" /></svg>
+            </summary>
+            <div class="portal-menu">
+              <a class="portal-formats" href="./" data-formats-link aria-current="page">
+                <svg class="portal-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 3h6v18H4zM14 3h6v18h-6zM4 7h6M14 7h6" /></svg>
+                <span>Форматы</span>
+              </a>
+              <div class="portal-menu-links"></div>
+            </div>
+          </details>
         </nav>
       </div>
-      <nav class="portal-shortcuts" aria-label="Быстрый запуск инструментов">
-        <span class="portal-shortcuts-label">Инструменты</span>
-        <a href="./tools/word/">Слова</a>
-        <a href="./tools/emotion/">Эмоции</a>
-        <a href="./tools/locations/">Локации</a>
-        <a href="./tools/bell/">Звонок</a>
-        <a class="portal-shortcuts-all" href="./tools/">Все 11 <span aria-hidden="true">→</span></a>
-      </nav>
 
       <div class="hero__content">
         <div class="hero__intro">

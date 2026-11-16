@@ -62,6 +62,33 @@ const closeDetail = element<HTMLButtonElement>('#closeDetail');
 const copyLink = element<HTMLButtonElement>('#copyLink');
 const toast = element<HTMLElement>('#toast');
 
+const positionStorageKey = `improformats.catalog-position:${new URL('.', location.href).pathname}`;
+let savedPosition: { url: string; top: number; detailTop: number } | null = null;
+try {
+  const stored = JSON.parse(sessionStorage.getItem(positionStorageKey) ?? 'null');
+  if (stored?.url === location.href && Number.isFinite(stored.top) && Number.isFinite(stored.detailTop)) {
+    savedPosition = stored;
+  }
+} catch {
+  // Navigation remains available when session storage is blocked.
+}
+window.addEventListener('pagehide', () => {
+  try {
+    sessionStorage.setItem(positionStorageKey, JSON.stringify({
+      url: location.href, top: window.scrollY, detailTop: detailPanel.scrollTop,
+    }));
+  } catch {
+    // Saving the reading position is optional when storage is unavailable.
+  }
+});
+
+function restoreReadingPosition(): void {
+  if (!savedPosition || savedPosition.url !== location.href) return;
+  window.scrollTo(0, savedPosition.top);
+  detailPanel.scrollTop = savedPosition.detailTop;
+  savedPosition = null;
+}
+
 const resizablePanelsQuery = window.matchMedia('(min-width: 901px)');
 let records: FormatRecord[] = [];
 let filters: FilterState = readFiltersFromUrl(new URL(window.location.href));
@@ -667,7 +694,8 @@ function startApp(): void {
   filtersToggle.disabled = false;
   initializePanelResize(catalog, { filters: filtersResizeHandle, detail: detailResizeHandle });
   render();
-  void loadFreshData();
+  if (records.length > 0) restoreReadingPosition();
+  void loadFreshData().then(restoreReadingPosition);
 }
 
 const appStyles = element<HTMLLinkElement>('#appStyles');

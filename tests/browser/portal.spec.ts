@@ -19,19 +19,23 @@ test.beforeEach(async ({ page }) => {
     ? route.continue() : route.abort());
 });
 
-test('opens the internal catalog and every tool through native links', async ({ page, context }) => {
+test('opens every tool directly through the shared switcher', async ({ page, context }) => {
   await page.goto('/');
   const navigation = page.getByRole('navigation', { name: 'Основная навигация' });
-  await navigation.getByRole('link', { name: 'Инструменты', exact: true }).click();
-  await expect(page).toHaveURL('/tools/');
-  await expect(page.getByRole('heading', { name: 'Инструменты для импровизации', exact: true })).toBeVisible();
-  const cards = page.locator('.tool-card');
-  await expect(cards).toHaveCount(tools.length);
+  const picker = navigation.locator('.portal-picker');
+  await expect(picker.locator('summary')).toHaveText('Инструменты');
+  await picker.locator('summary').click();
+  await expect(picker.locator('[aria-current="page"]')).toHaveText('Форматы');
+  await expect(picker.locator('.portal-menu-links a')).toHaveText(tools.map(tool => tool.name));
   for (const tool of tools) {
-    await expect(cards.filter({ hasText: tool.name })).toHaveAttribute('href', `./${tool.slug}/`);
+    if (!await picker.evaluate(element => (element as HTMLDetailsElement).open)) {
+      await picker.locator('summary').click();
+    }
+    await picker.getByRole('link', { name: tool.name, exact: true }).click();
+    await expect(page).toHaveURL(`/tools/${tool.slug}/`);
+    await expect(picker.locator('summary')).toHaveText(tool.name);
+    await expect(picker).not.toHaveAttribute('open');
   }
-  await cards.filter({ hasText: 'Персонажи' }).click();
-  await expect(page).toHaveURL('/tools/characters/');
   expect(context.pages()).toHaveLength(1);
 });
 
@@ -39,11 +43,11 @@ test('restores the catalog search and filters after using a tool', async ({ page
   await page.goto('/?q=сцена&form=Короткая+форма&video=yes&filters=3');
   await expect(page.locator('.cue-search')).not.toHaveAttribute('inert');
   const savedUrl = page.url();
-  await page.getByRole('navigation', { name: 'Быстрый запуск инструментов' })
-    .getByRole('link', { name: 'Слова', exact: true }).click();
+  await page.locator('.portal-picker summary').click();
+  await page.locator('.portal-menu').getByRole('link', { name: 'Слова', exact: true }).click();
   await expect(page).toHaveURL('/tools/word/');
-  await page.getByRole('navigation', { name: 'Основная навигация' })
-    .getByRole('link', { name: 'Форматы', exact: true }).click();
+  await page.locator('.portal-picker summary').click();
+  await page.locator('.portal-menu').getByRole('link', { name: 'Форматы', exact: true }).click();
   await expect(page).toHaveURL(savedUrl);
   await expect(page.locator('#searchInput')).toHaveValue('сцена');
   if (await page.locator('#filtersToggle').isVisible()) await page.locator('#filtersToggle').click();
@@ -63,7 +67,7 @@ test('supports keyboard navigation without triggering the emotion generator', as
   await expect(picker.locator('.portal-menu-links a')).toHaveCount(tools.length);
   await expect(page.locator('#counter')).toHaveText(count!);
   await page.keyboard.press('Tab');
-  await expect(picker.getByRole('link', { name: 'Все инструменты', exact: true })).toBeFocused();
+  await expect(picker.getByRole('link', { name: 'Форматы', exact: true })).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(picker).not.toHaveAttribute('open');
   await expect(summary).toBeFocused();
@@ -81,8 +85,8 @@ test('keeps navigation usable when session storage is blocked', async ({ page })
   await page.locator('.portal-picker summary').click();
   await page.locator('.portal-menu-links').getByRole('link', { name: 'Локации', exact: true }).click();
   await expect(page).toHaveURL('/tools/locations/');
-  await page.getByRole('navigation', { name: 'Основная навигация' })
-    .getByRole('link', { name: 'Форматы', exact: true }).click();
+  await page.locator('.portal-picker summary').click();
+  await page.locator('.portal-menu').getByRole('link', { name: 'Форматы', exact: true }).click();
   await expect(page).toHaveURL('/');
 });
 
@@ -100,6 +104,77 @@ test('fits the navigation and menu on a 320 px screen', async ({ page }) => {
   }
 });
 
+test('dismisses the menu without activating the tool underneath', async ({ page }) => {
+  await page.goto('/tools/emotion/');
+  const counter = page.locator('#counter');
+  const count = await counter.textContent();
+  const picker = page.locator('.portal-picker');
+  await picker.locator('summary').click();
+  await page.locator('#next').click();
+  await expect(picker).not.toHaveAttribute('open');
+  await expect(counter).toHaveText(count!);
+  await page.locator('#next').click();
+  await expect(counter).not.toHaveText(count!);
+});
+
+test('consumes the dismissal pointerdown before a tool can play a sound', async ({ page }) => {
+  await page.goto('/tools/genres/');
+  const draw = page.locator('#draw');
+  await draw.evaluate(element => element.addEventListener('pointerdown', () => {
+    element.setAttribute('data-pointer-received', 'true');
+  }));
+  const count = await page.locator('#round-progress').textContent();
+  await page.locator('.portal-picker summary').click();
+  await draw.click();
+  await expect(draw).not.toHaveAttribute('data-pointer-received');
+  await expect(page.locator('#round-progress')).toHaveText(count!);
+  await draw.click();
+  await expect(draw).toHaveAttribute('data-pointer-received', 'true');
+  await expect(page.locator('#round-progress')).not.toHaveText(count!);
+});
+
+test('restores the catalog reading position after switching between tools', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.format-row').first()).toBeVisible();
+  await page.evaluate(() => scrollTo(0, 800));
+  const position = await page.evaluate(() => scrollY);
+  await page.locator('.portal-picker summary').click();
+  await page.locator('.portal-menu').getByRole('link', { name: 'Слова', exact: true }).click();
+  await page.locator('.portal-picker summary').click();
+  await page.locator('.portal-menu').getByRole('link', { name: 'Эмоции', exact: true }).click();
+  await page.locator('.portal-picker summary').click();
+  await page.locator('.portal-menu').getByRole('link', { name: 'Форматы', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => scrollY)).toBe(position);
+});
+
+test('scrolls the menu on short screens and keeps all destinations reachable', async ({ page }) => {
+  await page.setViewportSize({ width: 568, height: 320 });
+  await page.goto('/tools/bell/');
+  await page.locator('.portal-picker summary').click();
+  const menu = page.locator('.portal-menu');
+  expect(await menu.evaluate(element => {
+    const bounds = element.getBoundingClientRect();
+    return bounds.bottom <= innerHeight && element.scrollHeight > element.clientHeight;
+  })).toBe(true);
+  await menu.getByRole('link', { name: 'Персонажи', exact: true }).click();
+  await expect(page).toHaveURL('/tools/characters/');
+});
+
+test('keeps the switcher reachable when the catalog is scrolled', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.format-row').first()).toBeVisible();
+  await page.evaluate(() => scrollTo(0, 800));
+  expect(await page.locator('.portal-header').evaluate(header => {
+    const bottom = header.getBoundingClientRect().bottom;
+    return [...document.querySelectorAll('.results__heading, .filters, .detail-panel')]
+      .filter(panel => getComputedStyle(panel).position === 'sticky')
+      .every(panel => panel.getBoundingClientRect().top >= bottom - 1);
+  })).toBe(true);
+  await page.locator('.portal-picker summary').click();
+  await page.locator('.portal-menu').getByRole('link', { name: 'Звонок', exact: true }).click();
+  await expect(page).toHaveURL('/tools/bell/');
+});
+
 for (const tool of tools) {
   test(`${tool.slug} loads its resources and responds to its primary action`, async ({ page }) => {
     const errors: string[] = [];
@@ -111,6 +186,7 @@ for (const tool of tools) {
     });
     await page.goto(`/tools/${tool.slug}/`);
     await expect(page.locator('.portal-brand')).toBeVisible();
+    await expect(page.locator('.portal-current-name')).toHaveText(tool.name);
     await expect(page.locator(tool.button)).toBeVisible();
     if (tool.result) {
       const previous = await page.locator(tool.result).textContent();
