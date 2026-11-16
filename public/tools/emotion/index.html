@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="Тренажёр эмоций для импровизации без повторов внутри круга.">
+<title>Генератор эмоций — инструменты для импровизации</title>
+<link rel="stylesheet" href="../shared/styles.css">
+<style>
+:root{--bg:#111318;--accent:#fff;--text:#f6f7fb;--muted:rgba(246,247,251,.62)}*{box-sizing:border-box}html,body{height:100%;margin:0;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--text)}html{touch-action:manipulation}body{transition:background .3s}
+.app{min-height:100dvh;display:grid;grid-template-rows:auto 1fr auto;padding:80px clamp(16px,4vw,40px) 20px;gap:16px}header{display:flex;justify-content:space-between;align-items:center}.brand{font-weight:800}button{cursor:pointer}
+.app,header,.stage,.stage>div,footer{min-width:0}.icon{width:44px;height:44px;border:0;border-radius:14px;background:rgba(255,255,255,.08);color:white;font-size:19px}.stage{display:grid;place-items:center;text-align:center}.stage>div{width:100%}.category{color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:700;min-height:28px}h1{width:100%;margin:16px 0 0;font-size:clamp(54px,10vw,138px);line-height:.94;letter-spacing:-.05em;white-space:nowrap}.counter{margin-top:28px;color:var(--muted)}footer{width:min(100%,760px);justify-self:center}.next{width:100%;min-height:78px;border:0;border-radius:24px;background:var(--accent);font-size:28px;font-weight:850;color:#111318}.hint{text-align:center;color:var(--muted);font-size:13px;margin-top:10px}
+.panel{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;place-items:end center;padding:20px}.panel.open{display:grid}.sheet{width:min(560px,100%);background:#22252d;border-radius:24px;padding:22px}label{display:flex;justify-content:space-between;padding:14px 0}.done{width:100%;min-height:52px;border:0;border-radius:16px;font-weight:800}
+
+</style>
+  <link rel="stylesheet" href="../../portal/styles.css" />
+  <script src="../../portal/navigation.js" defer></script>
+</head>
+<body>
+    <div class="portal-header" data-portal-root="../../" data-portal-tool="emotion">
+      <nav class="portal-nav" aria-label="Основная навигация">
+        <a class="portal-brand" href="../../" data-formats-link>ImproFormats</a>
+        <a class="portal-section" href="../../" data-formats-link>Форматы</a>
+        <div class="portal-tools is-active">
+          <a class="portal-section" href="../../tools/">Инструменты</a>
+          <details class="portal-picker">
+            <summary aria-label="Выбрать инструмент"><span aria-hidden="true">⌄</span></summary>
+            <div class="portal-menu">
+              <a class="portal-all-tools" href="../../tools/">Все инструменты</a>
+              <div class="portal-menu-links"></div>
+            </div>
+          </details>
+        </div>
+      </nav>
+    </div>
+
+<main class="app">
+  <header>
+    <div class="brand">● Эмоция</div>
+    <div><button class="icon" id="full" aria-label="Полноэкранный режим">⛶</button> <button class="icon" id="settings" aria-label="Настройки">⚙︎</button></div>
+  </header>
+  <section class="stage"><div><div class="category" id="category"></div><h1 id="emotion" aria-live="polite">Загрузка…</h1><div class="counter" id="counter"></div></div></section>
+  <footer><button class="next" id="next">Следующая</button><div class="hint">Пробел, Enter или стрелка вправо</div></footer>
+</main>
+<div class="panel" id="panel"><div class="sheet"><h2>Настройки</h2><label><span>Показывать группу</span><input type="checkbox" id="showCategory" checked></label><label><span>Звуки</span><input type="checkbox" id="sound" checked></label><button class="done" id="done">Готово</button></div></div>
+<script src="./app.js"></script>
+</body>
+</html>

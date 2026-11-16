@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f58e97" />
+    <meta name="description" content="700 ярких персонажей для импровизации. Герои кино, мультфильмов, книг, игр и известные люди — в случайном порядке без повторов." />
+    <title>Персонажи — инструменты для импровизации</title>
+    <link rel="icon" type="image/svg+xml" href="../shared/assets/characters.svg" />
+    <link rel="stylesheet" href="../shared/styles.css" />
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="./characters.js" defer></script>
+    <script src="./app.js" defer></script>
+    <link rel="stylesheet" href="../../portal/styles.css" />
+  <script src="../../portal/navigation.js" defer></script>
+</head>
+  <body>
+    <div class="portal-header" data-portal-root="../../" data-portal-tool="characters">
+      <nav class="portal-nav" aria-label="Основная навигация">
+        <a class="portal-brand" href="../../" data-formats-link>ImproFormats</a>
+        <a class="portal-section" href="../../" data-formats-link>Форматы</a>
+        <div class="portal-tools is-active">
+          <a class="portal-section" href="../../tools/">Инструменты</a>
+          <details class="portal-picker">
+            <summary aria-label="Выбрать инструмент"><span aria-hidden="true">⌄</span></summary>
+            <div class="portal-menu">
+              <a class="portal-all-tools" href="../../tools/">Все инструменты</a>
+              <div class="portal-menu-links"></div>
+            </div>
+          </details>
+        </div>
+      </nav>
+    </div>
+    <header class="toolbar">
+      
+      <div class="toolbar-actions">
+        <button class="list-button" id="list-open" type="button" aria-haspopup="dialog" aria-controls="character-list">Список</button>
+        <button class="sound-button" id="sound-toggle" type="button" aria-label="Выключить звук" aria-pressed="true" title="Выключить звук">
+          <span class="speaker" aria-hidden="true"><span class="sound-waves"></span></span>
+        </button>
+      </div>
+    </header>
+
+    <main class="casting">
+      <div class="intro">
+        <h1>Персонажи</h1>
+      </div>
+
+      <div class="ticket-stack">
+        <div class="ticket-back" aria-hidden="true"></div>
+        <section class="ticket" aria-label="Случайный персонаж">
+          <div class="character" role="status" aria-live="polite" aria-atomic="true">
+            <h2 id="character-name"></h2>
+            <p id="character-category" class="character-category"></p>
+          </div>
+        </section>
+        <span class="spark" aria-hidden="true"></span>
+      </div>
+
+      <div class="draw-controls">
+        <button class="draw-button" id="draw" type="button" aria-keyshortcuts="Space">Новый персонаж</button>
+      </div>
+
+      <footer class="session">
+        <p class="counter"><strong id="played-count">0</strong> / <span data-total>700</span></p>
+        <div class="progress" id="progress" role="progressbar" aria-label="Персонажей сыграно" aria-valuemin="0" aria-valuemax="700" aria-valuenow="0">
+          <span id="progress-fill"></span>
+        </div>
+      </footer>
+    </main>
+
+    <dialog id="character-list" class="list-dialog" aria-labelledby="list-title">
+      <div class="list-sheet">
+        <header class="list-header">
+          <h2 id="list-title">Все персонажи</h2>
+          <button id="list-close" class="close-button" type="button" aria-label="Закрыть список">×</button>
+        </header>
+        <div class="list-search">
+          <label class="visually-hidden" for="search">Поиск по имени, произведению или категории</label>
+          <input id="search" type="search" placeholder="Поиск" autocomplete="off" spellcheck="false" />
+          <p id="list-count" class="visually-hidden" role="status" aria-live="polite"></p>
+        </div>
+        <div class="list-scroll" tabindex="0" role="region" aria-label="Алфавитный список персонажей">
+          <ul id="characters"></ul>
+          <p id="empty-search" class="empty-search" hidden>Ничего не найдено</p>
+        </div>
+      </div>
+    </dialog>
+    <noscript><p class="noscript">Для случайного выбора персонажей включи JavaScript в браузере.</p></noscript>
+  </body>
+</html>

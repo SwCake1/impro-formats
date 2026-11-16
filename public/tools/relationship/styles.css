@@ -1,0 +1,287 @@
+/*
+  Образ инструмента: мягкий неоморфизм. Всё вылеплено из одного тёплого
+  «пластилина»: карточка выступает из поверхности, кнопки — тоже мягкие
+  формы того же материала. Главный жест — нажатие: основная кнопка при
+  нажатии вдавливается внутрь (тени переворачиваются), как мягкая игрушка.
+  Тёмный засечный текст и один тёплый акцент держат контраст, чтобы
+  оформление не расплылось в серую массу.
+*/
+
+.rel-page {
+  --plaster: #e9e6df;
+  --plaster-hi: #fbf9f4;
+  --plaster-lo: #cbc7bd;
+  --ink: #2a2724;
+  --ink-soft: #6f6a61;
+  --ember: #c8613f;
+  --ember-deep: #a94e30;
+
+  /* Расстояние и мягкость теней у неоморфных элементов. */
+  --lift: 0.5rem;
+  --blur: 1.1rem;
+
+  box-sizing: border-box;
+  min-height: 100vh;
+  margin: 0;
+  background: var(--plaster);
+  color: var(--ink);
+  font-family: system-ui, sans-serif;
+}
+
+.rel-page *,
+.rel-page *::before,
+.rel-page *::after {
+  box-sizing: inherit;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.rel-shell {
+  display: grid;
+  gap: clamp(2rem, 6vw, 3.25rem);
+  width: min(100% - 2.5rem, 40rem);
+  min-height: 100vh;
+  margin-inline: auto;
+  padding: clamp(5rem, 12vw, 7rem) 0 clamp(3rem, 8vw, 4.5rem);
+  align-content: center;
+  justify-items: center;
+}
+
+/* --- Заголовок ------------------------------------------------------------ */
+
+.rel-header {
+  text-align: center;
+}
+
+.rel-eyebrow {
+  margin: 0 0 0.6rem;
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+
+.rel-title {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.6rem, 6vw, 2.4rem);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+/* --- Карточка отношения --------------------------------------------------- */
+
+.rel-stage {
+  width: 100%;
+}
+
+.rel-card {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  min-height: clamp(11rem, 34vw, 15rem);
+  padding: clamp(1.75rem, 6vw, 3rem);
+  border-radius: clamp(1.5rem, 5vw, 2.25rem);
+  background: var(--plaster);
+  /* Выпуклая форма: светлый блик сверху-слева, мягкая тень снизу-справа. */
+  box-shadow:
+    calc(-1 * var(--lift)) calc(-1 * var(--lift)) var(--blur) var(--plaster-hi),
+    var(--lift) var(--lift) calc(var(--blur) * 1.4) var(--plaster-lo);
+}
+
+/* Счётчик прогресса по колоде: сколько отношений показано из общего числа. */
+.rel-counter {
+  position: absolute;
+  right: clamp(1rem, 4vw, 1.6rem);
+  bottom: clamp(0.85rem, 3.5vw, 1.4rem);
+  margin: 0;
+  color: var(--plaster-lo);
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  /* Появляется только вместе с результатом, чтобы не мешать заставке. */
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+
+.rel-card[data-state="result"] .rel-counter {
+  opacity: 1;
+}
+
+.rel-card__label {
+  margin: 0;
+  max-width: 20ch;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.6rem, 7.5vw, 2.9rem);
+  font-weight: 400;
+  line-height: 1.12;
+  text-align: center;
+  text-wrap: balance;
+}
+
+.rel-card[data-state="idle"] .rel-card__label {
+  max-width: 24ch;
+  color: var(--ink-soft);
+  font-family: system-ui, sans-serif;
+  font-size: clamp(1rem, 3.6vw, 1.2rem);
+  line-height: 1.4;
+}
+
+/* Проявление новой формулировки: лёгкий подъём и проступание. */
+.rel-card.is-swapping .rel-card__label {
+  animation: rel-settle 360ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes rel-settle {
+  0% {
+    opacity: 0;
+    transform: translateY(0.5rem) scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* --- Управление ----------------------------------------------------------- */
+
+.rel-controls {
+  display: grid;
+  gap: 1.25rem;
+  justify-items: center;
+}
+
+/* Основная кнопка — тёплый акцент, выступает из поверхности и вдавливается. */
+.rel-primary {
+  padding: clamp(0.9rem, 3vw, 1.1rem) clamp(2rem, 8vw, 3rem);
+  border: 0;
+  border-radius: 999px;
+  background: var(--ember);
+  color: #fff7f2;
+  font: inherit;
+  font-size: clamp(1rem, 3.6vw, 1.18rem);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  /* Убирает зум по двойному тапу в мобильных браузерах (iOS Safari). */
+  touch-action: manipulation;
+  box-shadow:
+    -0.3rem -0.3rem 0.7rem rgba(255, 255, 255, 0.5),
+    0.4rem 0.5rem 1rem rgba(120, 55, 33, 0.42);
+  transition: transform 120ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+
+.rel-primary:active {
+  background: var(--ember-deep);
+  transform: translateY(0.05rem);
+  /* Нажатие: тени переворачиваются внутрь — кнопка вдавливается. */
+  box-shadow:
+    inset 0.3rem 0.3rem 0.7rem rgba(120, 55, 33, 0.5),
+    inset -0.25rem -0.25rem 0.6rem rgba(255, 255, 255, 0.28);
+}
+
+/* Возврат — тоже выпуклая форма из того же материала, но нейтральная. */
+.rel-undo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  padding: 0.55rem 1.3rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--plaster);
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  /* Убирает зум по двойному тапу в мобильных браузерах (iOS Safari). */
+  touch-action: manipulation;
+  box-shadow:
+    -0.28rem -0.28rem 0.6rem var(--plaster-hi),
+    0.32rem 0.36rem 0.8rem var(--plaster-lo);
+  transition: transform 120ms ease, color 160ms ease, box-shadow 160ms ease, opacity 160ms ease;
+}
+
+.rel-undo__mark {
+  font-size: 1.15em;
+  transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Недоступный возврат глушится и слегка теряет объём — состояние читается. */
+.rel-undo:disabled {
+  opacity: 0.55;
+  color: var(--plaster-lo);
+  cursor: default;
+  box-shadow:
+    -0.16rem -0.16rem 0.4rem var(--plaster-hi),
+    0.18rem 0.2rem 0.5rem var(--plaster-lo);
+}
+
+.rel-undo:not(:disabled):active {
+  color: var(--ember);
+  transform: translateY(0.05rem);
+  /* Нажатие вдавливает форму внутрь, как у основной кнопки. */
+  box-shadow:
+    inset 0.24rem 0.24rem 0.55rem var(--plaster-lo),
+    inset -0.22rem -0.22rem 0.5rem var(--plaster-hi);
+}
+
+.rel-undo:not(:disabled):active .rel-undo__mark {
+  transform: rotate(-160deg);
+}
+
+.rel-primary:focus-visible,
+.rel-undo:focus-visible {
+  outline: 0.18rem solid var(--ember-deep);
+  outline-offset: 0.3rem;
+}
+
+@media (hover: hover) {
+  .rel-primary:hover {
+    transform: translateY(-0.12rem);
+    box-shadow:
+      -0.35rem -0.35rem 0.8rem rgba(255, 255, 255, 0.55),
+      0.5rem 0.6rem 1.2rem rgba(120, 55, 33, 0.46);
+  }
+
+  .rel-undo:not(:disabled):hover {
+    color: var(--ember);
+  }
+
+  .rel-undo:not(:disabled):hover .rel-undo__mark {
+    transform: rotate(-160deg);
+  }
+}
+
+.rel-hint {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+.noscript-message {
+  margin: 1rem;
+  text-align: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rel-page *,
+  .rel-page *::before,
+  .rel-page *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

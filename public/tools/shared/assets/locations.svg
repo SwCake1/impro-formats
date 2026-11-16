@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-labelledby="title">
+  <title id="title">Метка локации на перекидном табло</title>
+  <g stroke="#24170f" stroke-linecap="round" stroke-linejoin="round" stroke-width="5">
+    <path fill="#ffc74d" d="M60 12c20 0 34 14 34 33 0 23-27 50-34 61-7-11-34-38-34-61 0-19 14-33 34-33z"/>
+    <rect fill="#14181f" x="42" y="34" width="36" height="30" rx="5"/>
+    <path fill="none" stroke="#ffc74d" stroke-width="4" d="M46 49h28"/>
+    <path fill="none" stroke="#ffc74d" stroke-width="4" d="M48 42h12m6 0h6M48 57h8m6 0h14"/>
+  </g>
+  <circle fill="#24170f" cx="60" cy="49" r="2.4" stroke="none"/>
+</svg>

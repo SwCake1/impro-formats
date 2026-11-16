@@ -1,0 +1,406 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Небольшие инструменты для импровизации: выбирайте и начинайте играть."
+    />
+    <title>Инструменты для импровизации</title>
+    <link rel="stylesheet" href="./shared/styles.css" />
+    <script src="./shared/catalog.js" defer></script>
+    <link rel="canonical" href="https://www.improformats.ru/tools/" />
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
+    <link rel="stylesheet" href="../portal/styles.css" />
+    <script src="../portal/navigation.js" defer></script>
+  </head>
+  <body class="catalog-page">
+    <div class="portal-header" data-portal-root="../">
+      <nav class="portal-nav" aria-label="Основная навигация">
+        <a class="portal-brand" href="../" data-formats-link>ImproFormats</a>
+        <a class="portal-section" href="../" data-formats-link>Форматы</a>
+        <div class="portal-tools is-active">
+          <a class="portal-section" href="../tools/" aria-current="page">Инструменты</a>
+          <details class="portal-picker">
+            <summary aria-label="Выбрать инструмент"><span aria-hidden="true">⌄</span></summary>
+            <div class="portal-menu">
+              <a class="portal-all-tools" href="../tools/">Все инструменты</a>
+              <div class="portal-menu-links"></div>
+            </div>
+          </details>
+        </div>
+      </nav>
+    </div>
+    <main class="catalog-shell">
+      <header class="catalog-header">
+        <div class="catalog-toolbar">
+          <p class="catalog-kicker">Всё для сцены</p>
+          <button
+            class="catalog-settings-trigger"
+            type="button"
+            aria-label="Настройки"
+            aria-haspopup="dialog"
+            aria-controls="catalog-settings"
+            data-settings-open
+            hidden
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.09a2 2 0 0 1 1 1.74v.5a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2Z" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+          </button>
+        </div>
+        <h1 class="catalog-title">Инструменты для импровизации</h1>
+        <p class="catalog-intro">
+          Маленькие помощники для репетиций и игр.
+        </p>
+      </header>
+
+      <ul class="tool-grid" aria-label="Доступные инструменты">
+        <li>
+          <a class="tool-card" href="./bell/">
+            <span class="tool-card__content">
+              <img
+                class="tool-card__icon"
+                src="./shared/assets/bell.svg"
+                data-icon-classic="./shared/assets/bell.svg"
+                data-icon-theatrical="./shared/assets/catalog-generated/bell.webp"
+                data-icon-character="./shared/assets/catalog-character/bell.webp"
+                alt=""
+                width="120"
+                height="120"
+              />
+              <span class="tool-card__name">Звонок</span>
+            </span>
+          </a>
+        </li>
+        <li>
+          <a
+            class="tool-card"
+            href="./word/"
+            style="--card-accent: #b47716; --card-accent-soft: rgba(212, 155, 71, 0.22)"
+          >
+            <span class="tool-card__content">
+              <img
+                class="tool-card__icon"
+                src="./shared/assets/word.svg"
+                data-icon-classic="./shared/assets/word.svg"
+                data-icon-theatrical="./shared/assets/catalog-generated/word.webp"
+                data-icon-character="./shared/assets/catalog-character/word.webp"
+                alt=""
+                width="120"
+                height="120"
+              />
+              <span class="tool-card__name">Слова</span>
+            </span>
+          </a>
+        </li>
+        <li>
+          <a
+            class="tool-card"
+            href="./letters/"
+            style="--card-accent: #b94b3b; --card-accent-soft: rgba(212, 99, 76, 0.18)"
+          >
+            <span class="tool-card__content">
+              <img
+                class="tool-card__icon"
+                src="./shared/assets/letters.svg"
+                data-icon-classic="./shared/assets/letters.svg"
+                alt=""
+                width="120"
+                height="120"
+              />
+              <span class="tool-card__name">Буквы</span>
+            </span>
+          </a>
+        </li>
+        <li>
+          <a
+            class="tool-card"
+            href="./emotion/"
+            style="--card-accent: #574483; --card-accent-soft: rgba(87, 68, 131, 0.18)"
+          >
+            <span class="tool-card__content">
+              <img
+                class="tool-card__icon"
+                src="./shared/assets/emotion.svg"
+                data-icon-classic="./shared/assets/emotion.svg"
+                data-icon-theatrical="./shared/assets/catalog-generated/emotion.webp"
+                data-icon-character="./shared/assets/catalog-character/emotion.webp"
+                alt=""
+                width="120"
+                height="120"
+              />
+              <span class="tool-card__name">Эмоции</span>
+            </span>
+          </a>
+        </li>
+        <li>
+          <a
+            class="tool-card"
+            href="./rap-battle/"
+            style="--card-accent: #d51e62; --card-accent-soft: rgba(255, 176, 0, 0.24)"
+          >
+            <span class="tool-card__content">
+              <img
+                class="tool-card__icon"
+                src="./shared/assets/rap-battle.svg"
+                data-icon-classic="./shared/assets/rap-battle.svg"
+                data-icon-theatrical="./shared/assets/catalog-generated/rap-battle.webp"
+                data-icon-character="./shared/assets/catalog-character/rap-battle.webp"
+                alt=""
+                width="120"
+                height="120"
+              />
+              <span class="tool-card__name">Темы батлов</span>
+            </span>
+          </a>
+        </li>
+        <li>
+          <a
+            class="tool-card"
+            href="./locations/"
+            style="--card-accent: #ffc74d; --card-accent-soft: rgba(255, 199, 77, 0.2)"
+          >
+            <span class="tool-card__content">
+              <img
+                class="tool-card__icon"
+                src="./shared/assets/locations.svg"
+                data-icon-classic="./shared/assets/locations.svg"
+                data-icon-theatrical="./shared/assets/catalog-generated/locations.webp"
+                data-icon-character="./shared/assets/catalog-character/locations.webp"
+                alt=""
+                width="120"
+                height="120"
+              />
+              <span class="tool-card__name">Локации</span>
+            </span>
+          </a>
+        </li>
+        <li>
+          <a
+            class="tool-card"
+            href="./relationship/"
+            style="--card-accent: #2f6f6b; --card-accent-soft: rgba(47, 111, 107, 0.18)"
+          >
+            <span class="tool-card__content">
+              <img
+                class="tool-card__icon"
+                src="./shared/assets/relationship.svg"
+                data-icon-classic="./shared/assets/relationship.svg"
+                data-icon-theatrical="./shared/assets/catalog-generated/relationship.webp"
+                data-icon-character="./shared/assets/catalog-character/relationship.webp"
+                alt=""
+                width="120"
+                height="120"
+              />
+              <span class="tool-card__name">Отношения</span>
+            </span>
+          </a>
+        </li>
+        <li>
+          <a
+            class="tool-card"
+            href="./first-line/"
+            style="--card-accent: #c98a1f; --card-accent-soft: rgba(212, 155, 71, 0.26)"
+          >
+            <span class="tool-card__content">
+              <img
+                class="tool-card__icon"
+                src="./shared/assets/first-line.svg"
+                data-icon-classic="./shared/assets/first-line.svg"
+                data-icon-theatrical="./shared/assets/catalog-generated/first-line.webp"
+                data-icon-character="./shared/assets/catalog-character/first-line.webp"
+                alt=""
+                width="120"
+                height="120"
+              />
+              <span class="tool-card__name">Первая реплика</span>
+            </span>
+          </a>
+        </li>
+        <li>
+          <a
+            class="tool-card"
+            href="./genres/"
+            style="--card-accent: #c55923; --card-accent-soft: rgba(232, 109, 49, 0.2)"
+          >
+            <span class="tool-card__content">
+              <img
+                class="tool-card__icon"
+                src="./shared/assets/genres.svg"
+                data-icon-classic="./shared/assets/genres.svg"
+                alt=""
+                width="120"
+                height="120"
+              />
+              <span class="tool-card__name">Жанры</span>
+            </span>
+          </a>
+        </li>
+        <li>
+          <a
+            class="tool-card"
+            href="./professions/"
+            style="--card-accent: #65764b; --card-accent-soft: rgba(185, 215, 126, 0.24)"
+          >
+            <span class="tool-card__content">
+              <img
+                class="tool-card__icon"
+                src="./shared/assets/professions.svg"
+                data-icon-classic="./shared/assets/professions.svg"
+                alt=""
+                width="120"
+                height="120"
+              />
+              <span class="tool-card__name">Профессии</span>
+            </span>
+          </a>
+        </li>
+        <li>
+          <a
+            class="tool-card"
+            href="./characters/"
+            style="--card-accent: #b34c65; --card-accent-soft: rgba(245, 142, 151, 0.25)"
+          >
+            <span class="tool-card__content">
+              <img
+                class="tool-card__icon"
+                src="./shared/assets/characters.svg"
+                data-icon-classic="./shared/assets/characters.svg"
+                alt=""
+                width="120"
+                height="120"
+              />
+              <span class="tool-card__name">Персонажи</span>
+            </span>
+          </a>
+        </li>
+      </ul>
+
+      <footer class="catalog-footer">
+        <div class="catalog-footer__content">
+          <p class="catalog-footer__title">Связь</p>
+
+          <nav class="contact-actions" aria-label="Социальные сети автора">
+            <a
+              class="contact-action"
+              href="https://t.me/Vlad_Smhn"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <svg
+                class="contact-icon contact-icon--telegram"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path d="M20.7 4.1 17.9 19c-.2 1.1-.8 1.4-1.7.9l-4.3-3.2-2.1 2c-.2.2-.4.4-.9.4l.3-4.4 8.1-7.3c.4-.3-.1-.5-.5-.2l-10 6.3-4.3-1.4c-.9-.3-.9-.9.2-1.3L19.5 4c.8-.3 1.5.2 1.2 1.1Z" />
+              </svg>
+              <span>Telegram</span>
+            </a>
+
+            <a
+              class="contact-action"
+              href="https://www.instagram.com/vlad_smhn/"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <svg
+                class="contact-icon contact-icon--instagram"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <rect x="3.2" y="3.2" width="17.6" height="17.6" rx="5" />
+                <circle cx="12" cy="12" r="4.1" />
+                <circle class="contact-icon__dot" cx="17.4" cy="6.8" r="1" />
+              </svg>
+              <span>Instagram</span>
+            </a>
+          </nav>
+        </div>
+      </footer>
+    </main>
+
+    <dialog
+      class="catalog-settings"
+      id="catalog-settings"
+      aria-labelledby="catalog-settings-title"
+    >
+      <div class="catalog-settings__sheet">
+        <header class="catalog-settings__header">
+          <div>
+            <p class="catalog-settings__kicker">Вид каталога</p>
+            <h2 id="catalog-settings-title">Какие иконки показать?</h2>
+          </div>
+          <button
+            class="catalog-settings__close"
+            type="button"
+            aria-label="Закрыть настройки"
+            data-settings-close
+          >
+            <span aria-hidden="true">×</span>
+          </button>
+        </header>
+
+        <p class="catalog-settings__intro">
+          Выберите настроение каталога. Инструменты и их порядок не изменятся.
+        </p>
+
+        <fieldset class="icon-theme-options">
+          <legend class="visually-hidden">Набор иконок</legend>
+
+          <label class="icon-theme-option">
+            <input type="radio" name="icon-theme" value="classic" />
+            <span class="icon-theme-option__preview" aria-hidden="true">
+              <img src="./shared/assets/bell.svg" alt="" width="88" height="88" />
+            </span>
+            <span class="icon-theme-option__copy">
+              <span class="icon-theme-option__name">Классические</span>
+              <span class="icon-theme-option__description">Лаконичные и графичные</span>
+            </span>
+            <span class="icon-theme-option__mark" aria-hidden="true"></span>
+          </label>
+
+          <label class="icon-theme-option">
+            <input type="radio" name="icon-theme" value="theatrical" />
+            <span class="icon-theme-option__preview" aria-hidden="true">
+              <img
+                src="./shared/assets/catalog-generated/bell.webp"
+                alt=""
+                width="88"
+                height="88"
+              />
+            </span>
+            <span class="icon-theme-option__copy">
+              <span class="icon-theme-option__name">Театральные</span>
+              <span class="icon-theme-option__description">Тёплые и предметные</span>
+            </span>
+            <span class="icon-theme-option__mark" aria-hidden="true"></span>
+          </label>
+
+          <label class="icon-theme-option">
+            <input type="radio" name="icon-theme" value="character" />
+            <span class="icon-theme-option__preview" aria-hidden="true">
+              <img
+                src="./shared/assets/catalog-character/bell.webp"
+                alt=""
+                width="88"
+                height="88"
+              />
+            </span>
+            <span class="icon-theme-option__copy">
+              <span class="icon-theme-option__name">В характере</span>
+              <span class="icon-theme-option__description">Каждая — в стиле своего инструмента</span>
+            </span>
+            <span class="icon-theme-option__mark" aria-hidden="true"></span>
+          </label>
+        </fieldset>
+
+        <p class="catalog-settings__status" aria-live="polite" data-settings-status>
+          Выбор сохранится на этом устройстве.
+        </p>
+      </div>
+    </dialog>
+  </body>
+</html>

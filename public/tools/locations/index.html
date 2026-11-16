@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Генератор случайных локаций для начала импровизационной сцены — перекидное табло."
+    />
+    <title>Генератор локаций — инструменты для импровизации</title>
+    <link rel="stylesheet" href="../shared/styles.css" />
+    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="../../portal/styles.css" />
+  <script src="../../portal/navigation.js" defer></script>
+</head>
+  <body class="locations-page">
+    <div class="portal-header" data-portal-root="../../" data-portal-tool="locations">
+      <nav class="portal-nav" aria-label="Основная навигация">
+        <a class="portal-brand" href="../../" data-formats-link>ImproFormats</a>
+        <a class="portal-section" href="../../" data-formats-link>Форматы</a>
+        <div class="portal-tools is-active">
+          <a class="portal-section" href="../../tools/">Инструменты</a>
+          <details class="portal-picker">
+            <summary aria-label="Выбрать инструмент"><span aria-hidden="true">⌄</span></summary>
+            <div class="portal-menu">
+              <a class="portal-all-tools" href="../../tools/">Все инструменты</a>
+              <div class="portal-menu-links"></div>
+            </div>
+          </details>
+        </div>
+      </nav>
+    </div>
+    
+
+    <main class="locations-shell">
+      <header class="locations-header">
+        <h1 class="locations-title">Место действия</h1>
+      </header>
+
+      <section class="board-wrap" aria-labelledby="board-title">
+        <h2 id="board-title" class="visually-hidden">Локация</h2>
+        <div id="board" class="board" aria-hidden="true"></div>
+        <p id="counter" class="board-counter" aria-hidden="true"></p>
+        <p id="liveLocation" class="visually-hidden" aria-live="polite" aria-atomic="true"></p>
+      </section>
+
+      <button id="nextButton" class="board-button" type="button">
+        <span class="board-button__text">Дай локацию</span>
+        <span class="board-button__mark" aria-hidden="true">↝</span>
+      </button>
+
+      <p class="board-hint">Пробел, Enter или стрелка вправо — следующая локация</p>
+    </main>
+
+    <noscript>
+      <p class="noscript-message">Для генерации локаций нужен включённый JavaScript.</p>
+    </noscript>
+
+    <script src="./locations.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>

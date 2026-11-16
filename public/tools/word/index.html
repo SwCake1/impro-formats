@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Генератор существительных для упражнений и сцен импровизации.">
+<title>Генератор слов — инструменты для импровизации</title>
+<link rel="stylesheet" href="../shared/styles.css">
+<style>
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+  html, body {
+    margin: 0;
+    min-height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+    background: #111827;
+    color: white;
+  }
+  body {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 80px 16px 16px;
+  }
+  .box {
+    width: 100%;
+    max-width: 680px;
+    background: #1f2937;
+    border: 1px solid rgba(255,255,255,.15);
+    border-radius: 28px;
+    padding: 22px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.35);
+  }
+  h1 {
+    margin: 0 0 8px;
+    font-size: 30px;
+    line-height: 1.08;
+  }
+  .sub {
+    color: rgba(255,255,255,.7);
+    margin: 0 0 20px;
+    line-height: 1.4;
+  }
+  .word {
+    position: relative;
+    min-height: 190px;
+    border-radius: 22px;
+    background: rgba(255,255,255,.08);
+    border: 1px solid rgba(255,255,255,.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 18px;
+    font-size: clamp(46px, 11vw, 90px);
+    font-weight: 850;
+    letter-spacing: -0.06em;
+    margin-bottom: 16px;
+    transform-origin: 50% 70%;
+  }
+  .word.is-changing {
+    animation: word-card-in 480ms cubic-bezier(.2, .8, .25, 1.15);
+  }
+  .word.is-changing > span {
+    animation: word-text-in 480ms cubic-bezier(.2, .8, .25, 1.15);
+  }
+  button {
+    width: 100%;
+    min-height: 64px;
+    border: 0;
+    border-radius: 18px;
+    background: #fbbf24;
+    color: #111827;
+    font: inherit;
+    font-size: 20px;
+    font-weight: 850;
+    cursor: pointer;
+    touch-action: manipulation;
+    transition: transform 140ms ease, filter 140ms ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+  button:hover {
+    filter: brightness(1.06);
+  }
+  button:active {
+    transform: scale(.98);
+  }
+  button:disabled {
+    cursor: default;
+    opacity: .45;
+  }
+  .row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 10px;
+  }
+  .small {
+    min-height: 48px;
+    font-size: 15px;
+    background: rgba(255,255,255,.12);
+    color: white;
+    border: 1px solid rgba(255,255,255,.16);
+  }
+  .meta {
+    margin-top: 14px;
+    color: rgba(255,255,255,.7);
+    font-size: 14px;
+    line-height: 1.45;
+  }
+  .history {
+    margin-top: 12px;
+    color: rgba(255,255,255,.78);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  .burst {
+    position: fixed;
+    left: var(--x);
+    top: var(--y);
+    z-index: 20;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--color);
+    pointer-events: none;
+    animation: burst-out 620ms ease-out forwards;
+  }
+  @keyframes word-card-in {
+    0% { transform: translateY(-10px) scale(.97); border-color: rgba(251,191,36,.55); }
+    65% { transform: translateY(2px) scale(1.012); }
+    100% { transform: none; }
+  }
+  @keyframes word-text-in {
+    0% { opacity: 0; transform: scale(.78); filter: blur(4px); }
+    70% { opacity: 1; transform: scale(1.04); filter: blur(0); }
+    100% { transform: none; }
+  }
+  @keyframes burst-out {
+    0% { opacity: .9; transform: translate(-50%, -50%) scale(.4); }
+    100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: .01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: .01ms !important;
+    }
+    .burst { display: none; }
+  }
+</style>
+  <link rel="stylesheet" href="../../portal/styles.css" />
+  <script src="../../portal/navigation.js" defer></script>
+</head>
+<body>
+    <div class="portal-header" data-portal-root="../../" data-portal-tool="word">
+      <nav class="portal-nav" aria-label="Основная навигация">
+        <a class="portal-brand" href="../../" data-formats-link>ImproFormats</a>
+        <a class="portal-section" href="../../" data-formats-link>Форматы</a>
+        <div class="portal-tools is-active">
+          <a class="portal-section" href="../../tools/">Инструменты</a>
+          <details class="portal-picker">
+            <summary aria-label="Выбрать инструмент"><span aria-hidden="true">⌄</span></summary>
+            <div class="portal-menu">
+              <a class="portal-all-tools" href="../../tools/">Все инструменты</a>
+              <div class="portal-menu-links"></div>
+            </div>
+          </details>
+        </div>
+      </nav>
+    </div>
+
+<main class="box">
+  <h1>Словарь для импровизации</h1>
+  <p class="sub">Нажимай кнопку — приложение выдаст обычное существительное. Слова не повторяются до конца круга.</p>
+
+  <div id="wordCard" class="word"><span id="word" aria-live="polite">готов?</span></div>
+
+  <button id="nextButton" type="button">Дать слово</button>
+
+  <div class="row">
+    <button id="backButton" class="small" type="button">Назад</button>
+    <button id="resetButton" class="small" type="button">Сбросить круг</button>
+  </div>
+
+  <div id="counter" class="meta">Использовано в круге: 0 из 926</div>
+  <div id="history" class="history"></div>
+</main>
+<script src="./app.js"></script>
+</body>
+</html>

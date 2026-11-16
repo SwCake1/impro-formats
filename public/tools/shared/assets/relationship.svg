@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-labelledby="title">
+  <title id="title">Два персонажа, соединённые нитью</title>
+  <g stroke="#24170f" stroke-linecap="round" stroke-linejoin="round" stroke-width="5">
+    <path fill="none" d="M40 60c8-12 32-12 40 0"/>
+    <circle fill="#2f6f6b" cx="32" cy="52" r="15"/>
+    <circle fill="#a8452f" cx="88" cy="68" r="15"/>
+    <path fill="none" stroke="#f5ead5" stroke-width="4" d="M26 52h12"/>
+    <path fill="none" stroke="#f5ead5" stroke-width="4" d="M82 68h12"/>
+  </g>
+</svg>

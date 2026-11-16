@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-labelledby="title">
+  <title id="title">Буквы в движении</title>
+  <defs>
+    <clipPath id="letter-window">
+      <circle cx="60" cy="60" r="42"/>
+    </clipPath>
+  </defs>
+  <circle cx="60" cy="60" r="45" fill="#fff9f1" stroke="#d4634c" stroke-width="5"/>
+  <g clip-path="url(#letter-window)" font-family="Palatino Linotype, Book Antiqua, Georgia, serif" text-anchor="middle">
+    <text x="60" y="32" fill="#8b6d64" font-size="30" opacity=".38">А</text>
+    <text x="60" y="82" fill="#3d292d" font-size="62">Б</text>
+    <text x="60" y="118" fill="#8b6d64" font-size="30" opacity=".38">В</text>
+  </g>
+  <path d="M29 28c8-8 19-13 31-13s23 5 31 13" fill="none" stroke="#efb86a" stroke-linecap="round" stroke-width="4"/>
+</svg>

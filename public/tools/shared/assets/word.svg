@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-labelledby="title">
+  <title id="title">Карточки со словами</title>
+  <g fill="none" stroke="#24170f" stroke-linecap="round" stroke-linejoin="round" stroke-width="5">
+    <path fill="#fffaf0" d="M23 30h65a8 8 0 0 1 8 8v55H31a8 8 0 0 1-8-8z" transform="rotate(-7 60 61)"/>
+    <path fill="#f3c46f" d="M31 22h65a8 8 0 0 1 8 8v55H39a8 8 0 0 1-8-8z" transform="rotate(5 68 54)"/>
+    <path fill="#fffaf0" d="M25 31h70a8 8 0 0 1 8 8v51H33a8 8 0 0 1-8-8z"/>
+    <path d="M42 51h44M42 65h34"/>
+  </g>
+</svg>

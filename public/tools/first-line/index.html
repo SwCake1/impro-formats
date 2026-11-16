@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Генератор первой реплики для старта импровизационной сцены: яркая открывающая фраза с тегом темы и настройкой тем."
+    />
+    <title>Первая реплика — инструменты для импровизации</title>
+    <link rel="stylesheet" href="../shared/styles.css" />
+    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="../../portal/styles.css" />
+  <script src="../../portal/navigation.js" defer></script>
+</head>
+  <body class="fl-page">
+    <div class="portal-header" data-portal-root="../../" data-portal-tool="first-line">
+      <nav class="portal-nav" aria-label="Основная навигация">
+        <a class="portal-brand" href="../../" data-formats-link>ImproFormats</a>
+        <a class="portal-section" href="../../" data-formats-link>Форматы</a>
+        <div class="portal-tools is-active">
+          <a class="portal-section" href="../../tools/">Инструменты</a>
+          <details class="portal-picker">
+            <summary aria-label="Выбрать инструмент"><span aria-hidden="true">⌄</span></summary>
+            <div class="portal-menu">
+              <a class="portal-all-tools" href="../../tools/">Все инструменты</a>
+              <div class="portal-menu-links"></div>
+            </div>
+          </details>
+        </div>
+      </nav>
+    </div>
+    
+
+    <main class="fl-stage">
+      <div class="fl-beam" aria-hidden="true"></div>
+      <div class="fl-dust" aria-hidden="true"></div>
+
+      <header class="fl-header">
+        <p class="fl-eyebrow">Свет софитов</p>
+        <h1 class="fl-title">Первая реплика</h1>
+      </header>
+
+      <button
+        id="settingsToggle"
+        type="button"
+        class="fl-settings-toggle"
+        aria-haspopup="dialog"
+        aria-expanded="false"
+        aria-controls="settingsModal"
+      >
+        <svg class="fl-settings-toggle__icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path
+            fill="currentColor"
+            fill-rule="evenodd"
+            clip-rule="evenodd"
+            d="M12 1.5a1 1 0 0 1 .98.804l.37 1.85a7.53 7.53 0 0 1 1.66.69l1.55-1.06a1 1 0 0 1 1.28.11l1.27 1.27a1 1 0 0 1 .11 1.28l-1.06 1.55c.31.52.55 1.08.69 1.66l1.85.37a1 1 0 0 1 .804.98v1.8a1 1 0 0 1-.804.98l-1.85.37a7.53 7.53 0 0 1-.69 1.66l1.06 1.55a1 1 0 0 1-.11 1.28l-1.27 1.27a1 1 0 0 1-1.28.11l-1.55-1.06c-.52.31-1.08.55-1.66.69l-.37 1.85a1 1 0 0 1-.98.804h-1.8a1 1 0 0 1-.98-.804l-.37-1.85a7.53 7.53 0 0 1-1.66-.69l-1.55 1.06a1 1 0 0 1-1.28-.11l-1.27-1.27a1 1 0 0 1-.11-1.28l1.06-1.55a7.53 7.53 0 0 1-.69-1.66l-1.85-.37A1 1 0 0 1 1.5 12.9v-1.8a1 1 0 0 1 .804-.98l1.85-.37c.14-.58.38-1.14.69-1.66L3.777 6.55a1 1 0 0 1 .11-1.28l1.27-1.27a1 1 0 0 1 1.28-.11l1.55 1.06c.52-.31 1.08-.55 1.66-.69l.37-1.85A1 1 0 0 1 10.9 1.5h1.8Zm-.9 6.75a3.75 3.75 0 1 0 0 7.5 3.75 3.75 0 0 0 0-7.5Z"
+          />
+        </svg>
+        <span class="visually-hidden">Настройки тем</span>
+      </button>
+
+      <section class="fl-spot" aria-labelledby="fl-spot-title">
+        <h2 id="fl-spot-title" class="visually-hidden">Открывающая реплика</h2>
+
+        <div id="line" class="fl-line" data-state="idle">
+          <p id="lineText" class="fl-line__text">
+            Нажмите «Свет софитов», чтобы получить первую реплику
+          </p>
+          <p id="lineTone" class="fl-line__tone" hidden></p>
+        </div>
+
+        <p id="progress" class="fl-progress" aria-hidden="true"></p>
+        <p id="liveResult" class="visually-hidden" aria-live="polite" aria-atomic="true"></p>
+      </section>
+
+      <div class="fl-controls">
+        <button id="newButton" class="fl-primary" type="button">
+          <span class="fl-primary__glow" aria-hidden="true"></span>
+          <span class="fl-primary__text">Свет софитов</span>
+        </button>
+        <p class="fl-hint">Пробел или Enter — новая реплика</p>
+      </div>
+    </main>
+
+    <div id="settingsModal" class="fl-modal" hidden>
+      <div class="fl-modal__backdrop" data-close></div>
+      <div
+        class="fl-modal__panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="fl-modal-title"
+      >
+        <div class="fl-modal__header">
+          <h2 id="fl-modal-title" class="fl-modal__title">Темы реплик</h2>
+          <button type="button" class="fl-modal__close" data-close aria-label="Закрыть настройки">
+            &times;
+          </button>
+        </div>
+        <div id="toneCheckboxes" class="fl-modal__tones" role="group" aria-label="Включённые темы">
+          <!-- Чекбоксы тем создаются в app.js из FIRST_LINE_TONES -->
+        </div>
+        <p class="fl-modal__hint">Отключённые темы не будут появляться в генераторе.</p>
+      </div>
+    </div>
+
+    <noscript>
+      <p class="noscript-message">Для генерации первой реплики нужен включённый JavaScript.</p>
+    </noscript>
+
+    <script src="./lines.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>

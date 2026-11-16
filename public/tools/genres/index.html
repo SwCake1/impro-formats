@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#111112" />
+    <meta name="description" content="Случайный жанр кино, сериала или телепередачи и подсказка, как сыграть в нём импровизационную сцену." />
+    <title>Жанры — ImproFormats</title>
+    <link rel="stylesheet" href="../shared/styles.css" />
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="./genres.js" defer></script>
+    <script src="./app.js" defer></script>
+    <link rel="stylesheet" href="../../portal/styles.css" />
+  <script src="../../portal/navigation.js" defer></script>
+</head>
+  <body>
+    <div class="portal-header" data-portal-root="../../" data-portal-tool="genres">
+      <nav class="portal-nav" aria-label="Основная навигация">
+        <a class="portal-brand" href="../../" data-formats-link>ImproFormats</a>
+        <a class="portal-section" href="../../" data-formats-link>Форматы</a>
+        <div class="portal-tools is-active">
+          <a class="portal-section" href="../../tools/">Инструменты</a>
+          <details class="portal-picker">
+            <summary aria-label="Выбрать инструмент"><span aria-hidden="true">⌄</span></summary>
+            <div class="portal-menu">
+              <a class="portal-all-tools" href="../../tools/">Все инструменты</a>
+              <div class="portal-menu-links"></div>
+            </div>
+          </details>
+        </div>
+      </nav>
+    </div>
+    <svg class="symbol-library" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <symbol id="shuffle" viewBox="0 0 24 24"><path d="M3 6h3c4.5 0 7.5 12 12 12h3m-4-4 4 4-4 4M3 18h3c1.6 0 3.2-1.7 4.5-3.8M14 9c1.3-2 2.6-3 4-3h3m-4-4 4 4-4 4"/></symbol>
+      <symbol id="guide" viewBox="0 0 24 24"><path d="M3 5.5c3-1.2 6-1 9 1.2 3-2.2 6-2.4 9-1.2v13c-3-1.2-6-1-9 1.2-3-2.2-6-2.4-9-1.2zM12 7v12"/></symbol>
+      <symbol id="volume-on" viewBox="0 0 24 24"><path d="M3 9h4l5-4v14l-5-4H3zM16 8.5a5 5 0 0 1 0 7m3-10a9 9 0 0 1 0 13"/></symbol>
+      <symbol id="volume-off" viewBox="0 0 24 24"><path d="M3 9h4l5-4v14l-5-4H3zM16 9l5 6m0-6-5 6"/></symbol>
+      <symbol id="list" viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h12M3 6h.5M3 12h.5M3 18h.5"/></symbol>
+      <symbol id="close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+    </svg>
+
+    
+    <header class="masthead">
+      <div class="wrap masthead-inner">
+        <h1 class="wordmark">
+          <svg class="brand-mark" viewBox="0 0 40 34" aria-hidden="true">
+            <g fill="none" stroke="currentColor" stroke-width="3.5">
+              <circle cx="9" cy="9" r="5" />
+              <circle cx="22" cy="8" r="6" />
+            </g>
+            <rect x="2" y="16" width="25" height="16" rx="3" fill="currentColor" />
+            <path d="m29 21 8-4v14l-8-4z" fill="currentColor" />
+          </svg>
+          Жанры
+        </h1>
+        <button class="sound" type="button" aria-label="Звук" aria-pressed="true" title="Выключить звук">
+          <svg class="icon" aria-hidden="true"><use href="#volume-on"></use></svg>
+        </button>
+      </div>
+    </header>
+
+    <main class="wrap">
+      <section class="screen" aria-labelledby="genre-name">
+        <img class="backdrop" alt="" fetchpriority="high" />
+        <div class="shade"></div>
+        <div class="light-leak" aria-hidden="true"></div>
+        <span class="frame-mark top-mark" aria-hidden="true"></span>
+        <span class="frame-mark bottom-mark" aria-hidden="true"></span>
+        <button id="open-list" class="genre-selector" type="button" aria-haspopup="dialog" aria-controls="genre-picker">
+          <svg class="icon" aria-hidden="true"><use href="#list"></use></svg>
+          Список <span id="round-progress" title="Просмотрено жанров в этом круге"></span>
+        </button>
+        <div class="screen-content">
+          <div class="overline"><span aria-hidden="true"></span>Жанр для сцены</div>
+          <div class="caption" aria-live="polite" aria-atomic="true">
+            <h2 id="genre-name" tabindex="-1"></h2>
+            <p class="premise"></p>
+          </div>
+          <div class="screen-actions">
+            <button id="draw" class="action primary" type="button" aria-keyshortcuts="Space">
+              <svg class="icon" aria-hidden="true"><use href="#shuffle"></use></svg>
+              Новый жанр
+            </button>
+            <button id="hint-toggle" class="action secondary" type="button" aria-expanded="false" aria-controls="direction">
+              <svg class="icon" aria-hidden="true"><use href="#guide"></use></svg>
+              Как играть
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <aside id="direction" class="direction" aria-labelledby="direction-title" hidden>
+        <svg class="icon" aria-hidden="true"><use href="#guide"></use></svg>
+        <div>
+          <h2 id="direction-title"></h2>
+          <p id="direction-traits"></p>
+          <p id="direction-text"></p>
+        </div>
+      </aside>
+
+      <noscript>Чтобы выбирать жанры и открывать подсказки, включите JavaScript.</noscript>
+    </main>
+
+    <dialog id="genre-picker" aria-labelledby="picker-title">
+      <div class="picker-inner">
+        <header class="picker-heading">
+          <h2 id="picker-title" tabindex="-1" autofocus>Список жанров</h2>
+          <button id="close-list" type="button" aria-label="Закрыть список">
+            <svg class="icon" aria-hidden="true"><use href="#close"></use></svg>
+          </button>
+        </header>
+        <input id="genre-search" type="search" aria-label="Поиск по названию жанра" placeholder="Поиск по названию" autocomplete="off" />
+        <ul id="genre-options" aria-label="Жанры по алфавиту"></ul>
+        <p id="empty-list" role="status" hidden>Нет жанров с таким названием.</p>
+      </div>
+    </dialog>
+  </body>
+</html>

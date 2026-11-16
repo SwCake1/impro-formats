@@ -1,0 +1,509 @@
+/* Образ «Софит»: тёмная сцена, один мягкий тёплый луч и крупная реплика в
+   центре света. Оформление самостоятельное и не повторяет другие инструменты
+   каталога (нет бумажной темы, серифных заголовков и перекидного табло). */
+
+.fl-page {
+  --fl-stage-top: #171a24;
+  --fl-stage-bottom: #05060a;
+  --fl-beam: rgba(255, 224, 168, 0.9);
+  --fl-beam-soft: rgba(255, 214, 140, 0.16);
+  --fl-ink: #f6efe1;
+  --fl-ink-dim: rgba(246, 239, 225, 0.62);
+  --fl-ink-faint: rgba(246, 239, 225, 0.34);
+  --fl-accent: #ffd27a;
+
+  box-sizing: border-box;
+  min-height: 100vh;
+  margin: 0;
+  background:
+    radial-gradient(120% 90% at 50% -6%, var(--fl-stage-top) 0%, var(--fl-stage-bottom) 62%),
+    var(--fl-stage-bottom);
+  color: var(--fl-ink);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  overflow-x: hidden;
+}
+
+.fl-page *,
+.fl-page *::before,
+.fl-page *::after {
+  box-sizing: inherit;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Тёмная навигация под сцену: светлая версия из shared/styles.css здесь
+   потерялась бы на чёрном фоне. */
+.fl-page .tool-navigation {
+  --tool-nav-foreground: #f6efe1;
+  --tool-nav-background: rgba(28, 30, 40, 0.82);
+  --tool-nav-border: rgba(246, 239, 225, 0.22);
+  --tool-nav-focus: #ffd27a;
+}
+
+/* --- Сцена ---------------------------------------------------------------- */
+
+.fl-stage {
+  position: relative;
+  display: grid;
+  gap: clamp(1.75rem, 5vw, 2.75rem);
+  align-content: center;
+  justify-items: center;
+  width: min(100% - 2.5rem, 46rem);
+  min-height: 100vh;
+  margin-inline: auto;
+  padding: clamp(5.5rem, 12vw, 7.5rem) 0 clamp(3rem, 8vw, 4.5rem);
+  text-align: center;
+}
+
+/* Луч света: узкий конус сверху, расширяющийся к центру сцены. Оттенок
+   меняется под выбранный тон через переменную --fl-beam. */
+.fl-beam {
+  position: fixed;
+  top: -12vh;
+  left: 50%;
+  z-index: 0;
+  width: min(120vw, 60rem);
+  height: 130vh;
+  background: radial-gradient(
+    58% 46% at 50% 34%,
+    var(--fl-beam-soft) 0%,
+    rgba(255, 214, 140, 0.06) 42%,
+    transparent 72%
+  );
+  clip-path: polygon(42% 0%, 58% 0%, 88% 100%, 12% 100%);
+  transform: translateX(-50%);
+  pointer-events: none;
+  opacity: 0.9;
+  transition: opacity 320ms ease, background 520ms ease;
+}
+
+.fl-page[data-dimmed="true"] .fl-beam {
+  opacity: 0.35;
+}
+
+/* Мягкое свечение пылинок в луче — тихая живость сцены. */
+.fl-dust {
+  position: fixed;
+  top: 8vh;
+  left: 50%;
+  z-index: 0;
+  width: min(70vw, 26rem);
+  height: 70vh;
+  background-image:
+    radial-gradient(1.5px 1.5px at 30% 20%, rgba(255, 236, 190, 0.55), transparent 60%),
+    radial-gradient(1.5px 1.5px at 68% 42%, rgba(255, 236, 190, 0.4), transparent 60%),
+    radial-gradient(1px 1px at 48% 66%, rgba(255, 236, 190, 0.5), transparent 60%),
+    radial-gradient(1.5px 1.5px at 20% 78%, rgba(255, 236, 190, 0.35), transparent 60%),
+    radial-gradient(1px 1px at 80% 82%, rgba(255, 236, 190, 0.45), transparent 60%);
+  transform: translateX(-50%);
+  pointer-events: none;
+  opacity: 0.7;
+  animation: fl-dust-drift 12s ease-in-out infinite alternate;
+}
+
+@keyframes fl-dust-drift {
+  from {
+    transform: translateX(-50%) translateY(0);
+    opacity: 0.55;
+  }
+  to {
+    transform: translateX(-50%) translateY(-1.4rem);
+    opacity: 0.85;
+  }
+}
+
+.fl-header,
+.fl-spot,
+.fl-controls {
+  position: relative;
+  z-index: 1;
+}
+
+/* --- Заголовок ------------------------------------------------------------ */
+
+.fl-header {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.fl-eyebrow {
+  margin: 0;
+  color: var(--fl-accent);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+}
+
+.fl-title {
+  margin: 0;
+  font-size: clamp(1.5rem, 5vw, 2.35rem);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--fl-ink);
+}
+
+/* --- Кнопка настроек тем -------------------------------------------------- */
+
+.fl-settings-toggle {
+  touch-action: manipulation;
+  position: fixed;
+  top: clamp(1rem, 3vw, 1.5rem);
+  right: clamp(1rem, 3vw, 1.5rem);
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 1px solid rgba(246, 239, 225, 0.22);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--fl-ink-dim);
+  cursor: pointer;
+  transition: color 180ms ease, border-color 180ms ease, background 180ms ease,
+    transform 140ms ease;
+}
+
+.fl-settings-toggle__icon {
+  width: 1.35rem;
+  height: 1.35rem;
+}
+
+.fl-settings-toggle:hover {
+  border-color: rgba(255, 210, 122, 0.5);
+  color: var(--fl-ink);
+}
+
+.fl-settings-toggle:focus-visible {
+  outline: 0.18rem solid var(--fl-accent);
+  outline-offset: 0.2rem;
+}
+
+.fl-settings-toggle:active {
+  transform: scale(0.94);
+}
+
+.fl-settings-toggle[aria-expanded="true"] {
+  border-color: var(--fl-accent);
+  background: rgba(255, 210, 122, 0.16);
+  color: var(--fl-ink);
+}
+
+/* --- Модальное окно настроек тем ------------------------------------------ */
+
+.fl-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+}
+
+.fl-modal[hidden] {
+  display: none;
+}
+
+.fl-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(5, 6, 10, 0.72);
+}
+
+.fl-modal__panel {
+  position: relative;
+  width: min(100%, 26rem);
+  max-height: 85vh;
+  overflow-y: auto;
+  display: grid;
+  gap: 1rem;
+  padding: 1.5rem;
+  border: 1px solid rgba(246, 239, 225, 0.16);
+  border-radius: 1.1rem;
+  background: linear-gradient(180deg, var(--fl-stage-top) 0%, var(--fl-stage-bottom) 100%);
+  color: var(--fl-ink);
+  box-shadow: 0 1.5rem 3.5rem rgba(0, 0, 0, 0.5);
+  animation: fl-modal-in 220ms cubic-bezier(0.2, 0.75, 0.25, 1);
+}
+
+@keyframes fl-modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.6rem) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.fl-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.fl-modal__title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.fl-modal__close {
+  touch-action: manipulation;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid rgba(246, 239, 225, 0.22);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--fl-ink-dim);
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.fl-modal__close:hover {
+  color: var(--fl-ink);
+  border-color: rgba(255, 210, 122, 0.5);
+}
+
+.fl-modal__close:focus-visible {
+  outline: 0.18rem solid var(--fl-accent);
+  outline-offset: 0.2rem;
+}
+
+.fl-modal__tones {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.fl-modal__tone {
+  touch-action: manipulation;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 2.75rem;
+  padding: 0.3rem 0.4rem;
+  border-radius: 0.6rem;
+  color: var(--fl-ink-dim);
+  font-size: 0.98rem;
+  cursor: pointer;
+  transition: background 140ms ease, color 140ms ease;
+}
+
+.fl-modal__tone:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--fl-ink);
+}
+
+.fl-modal__tone input {
+  width: 1.2rem;
+  height: 1.2rem;
+  accent-color: var(--fl-accent);
+  cursor: pointer;
+}
+
+.fl-modal__hint {
+  margin: 0;
+  color: var(--fl-ink-faint);
+  font-size: 0.82rem;
+}
+
+/* --- Реплика в свете ------------------------------------------------------ */
+
+.fl-spot {
+  display: grid;
+  gap: clamp(0.85rem, 2.5vw, 1.25rem);
+  width: 100%;
+  justify-items: center;
+}
+
+.fl-line {
+  display: grid;
+  gap: clamp(0.7rem, 2vw, 1rem);
+  justify-items: center;
+  max-width: 34rem;
+  min-height: clamp(7rem, 26vh, 11rem);
+  align-content: center;
+}
+
+.fl-line__text {
+  margin: 0;
+  font-size: clamp(1.5rem, 6.5vw, 2.9rem);
+  font-weight: 600;
+  line-height: 1.16;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+  text-shadow: 0 0 2.4rem rgba(255, 214, 140, 0.35);
+}
+
+.fl-line[data-state="idle"] .fl-line__text {
+  color: var(--fl-ink-dim);
+  font-weight: 500;
+  font-size: clamp(1.05rem, 3.5vw, 1.4rem);
+  text-shadow: none;
+}
+
+.fl-line__tone {
+  margin: 0;
+  padding: 0.3rem 0.85rem;
+  border: 1px solid rgba(255, 210, 122, 0.4);
+  border-radius: 999px;
+  color: var(--fl-accent);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+/* Появление реплики «на свету»: мягкий подъём из темноты в фокус. */
+.fl-line.is-lit {
+  animation: fl-step-into-light 460ms cubic-bezier(0.2, 0.75, 0.25, 1);
+}
+
+@keyframes fl-step-into-light {
+  from {
+    opacity: 0;
+    transform: translateY(1.1rem) scale(0.985);
+    filter: blur(0.28rem) brightness(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0) brightness(1);
+  }
+}
+
+.fl-progress {
+  margin: 0;
+  min-height: 1.1rem;
+  color: var(--fl-ink-faint);
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
+}
+
+/* --- Основная кнопка ------------------------------------------------------ */
+
+.fl-controls {
+  display: grid;
+  gap: 0.85rem;
+  justify-items: center;
+}
+
+.fl-primary {
+  touch-action: manipulation;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  min-height: 3.4rem;
+  padding: 0.95rem 2.4rem;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ffe0a3 0%, #ffca6b 100%);
+  color: #2a1c05;
+  font: 700 1.05rem/1 system-ui, sans-serif;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  box-shadow:
+    0 0.6rem 1.8rem rgba(255, 200, 110, 0.35),
+    0 0 0 rgba(255, 200, 110, 0);
+  transition: transform 140ms ease, box-shadow 220ms ease;
+}
+
+.fl-primary__glow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(60% 120% at 50% -10%, rgba(255, 255, 255, 0.7), transparent 60%);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.fl-primary__text {
+  position: relative;
+}
+
+.fl-primary:hover {
+  transform: translateY(-0.12rem);
+  box-shadow:
+    0 0.9rem 2.2rem rgba(255, 200, 110, 0.5),
+    0 0 2.5rem rgba(255, 210, 122, 0.35);
+}
+
+.fl-primary:focus-visible {
+  outline: 0.2rem solid var(--fl-accent);
+  outline-offset: 0.28rem;
+}
+
+.fl-primary:active {
+  transform: translateY(0) scale(0.97);
+}
+
+.fl-primary[disabled] {
+  cursor: default;
+  filter: grayscale(0.6);
+  opacity: 0.6;
+  box-shadow: none;
+}
+
+.fl-hint {
+  margin: 0;
+  color: var(--fl-ink-faint);
+  font-size: 0.82rem;
+}
+
+.noscript-message {
+  position: relative;
+  z-index: 1;
+  max-width: 26rem;
+  margin: 1.5rem auto 0;
+  color: var(--fl-ink-dim);
+  font-size: 0.95rem;
+  text-align: center;
+}
+
+/* --- Адаптив: настольный экран -------------------------------------------- */
+
+@media (min-width: 48rem) {
+  .fl-line {
+    min-height: clamp(9rem, 28vh, 13rem);
+  }
+}
+
+/* --- Уважение к настройке уменьшенного движения --------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .fl-dust {
+    animation: none;
+  }
+  .fl-line.is-lit {
+    animation: fl-fade-in 200ms ease;
+  }
+  .fl-beam {
+    transition: background 520ms ease;
+  }
+  .fl-modal__panel {
+    animation: fl-fade-in 150ms ease;
+  }
+  @keyframes fl-fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+}

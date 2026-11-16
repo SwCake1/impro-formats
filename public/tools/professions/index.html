@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f7f7f2" />
+    <meta name="description" content="250 профессий для импровизации. Случайный порядок, счётчик и никаких повторов в одном круге." />
+    <title>Профессии — инструменты для импровизации</title>
+    <link rel="stylesheet" href="../shared/styles.css" />
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="./professions.js" defer></script>
+    <script src="./app.js" defer></script>
+    <link rel="stylesheet" href="../../portal/styles.css" />
+  <script src="../../portal/navigation.js" defer></script>
+</head>
+  <body class="professions-page">
+    <div class="portal-header" data-portal-root="../../" data-portal-tool="professions">
+      <nav class="portal-nav" aria-label="Основная навигация">
+        <a class="portal-brand" href="../../" data-formats-link>ImproFormats</a>
+        <a class="portal-section" href="../../" data-formats-link>Форматы</a>
+        <div class="portal-tools is-active">
+          <a class="portal-section" href="../../tools/">Инструменты</a>
+          <details class="portal-picker">
+            <summary aria-label="Выбрать инструмент"><span aria-hidden="true">⌄</span></summary>
+            <div class="portal-menu">
+              <a class="portal-all-tools" href="../../tools/">Все инструменты</a>
+              <div class="portal-menu-links"></div>
+            </div>
+          </details>
+        </div>
+      </nav>
+    </div>
+    <header class="page-header">
+      
+      <h1>Профессии</h1>
+      <button class="icon-button sound-button" id="sound-button" type="button" aria-label="Выключить звук" aria-pressed="true" title="Выключить звук">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M11 4 5.5 8.5H2v7h3.5L11 20Z" />
+          <g class="sound-waves"><path d="M15 8a6 6 0 0 1 0 8M18 4.5a10.5 10.5 0 0 1 0 15" /></g>
+          <g class="sound-cross"><path d="m16 9 6 6m0-6-6 6" /></g>
+        </svg>
+      </button>
+    </header>
+
+    <main class="workspace">
+      <section class="profession-stage" aria-label="Случайная профессия">
+        <p class="counter" id="counter" aria-label="Показано 0 из 250">00 <span>/ 250</span></p>
+        <div class="profession-space">
+          <h2 class="profession-name" id="profession-name">Профессии</h2>
+        </div>
+        <p class="sr-only" id="announcement" role="status" aria-atomic="true"></p>
+      </section>
+      <div class="actions">
+        <button class="next-button" id="next-button" type="button">
+          <span id="next-label">Следующая</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16m-6-6 6 6-6 6" /></svg>
+        </button>
+        <button class="list-button" id="list-button" type="button" aria-haspopup="dialog" aria-controls="professions-dialog">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5h13M8 12h13M8 19h13" /><path d="M3 5h.01M3 12h.01M3 19h.01" stroke-width="3" /></svg>
+          Все профессии
+        </button>
+      </div>
+      <noscript><p class="noscript">Включите JavaScript, чтобы выбирать профессии.</p></noscript>
+    </main>
+
+    <dialog class="professions-dialog" id="professions-dialog" aria-labelledby="list-title">
+      <div class="dialog-header">
+        <h2 id="list-title">Все профессии <span id="list-total">250</span></h2>
+        <button class="icon-button" id="close-list" type="button" aria-label="Закрыть список" autofocus>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
+        </button>
+      </div>
+      <div class="search-field">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></svg>
+        <input id="profession-search" type="search" placeholder="Найти профессию" aria-label="Поиск по профессиям" autocomplete="off" spellcheck="false" />
+      </div>
+      <p class="sr-only" id="search-status" role="status"></p>
+      <div class="list-scroll">
+        <ul class="professions-list" id="professions-list"></ul>
+        <p class="empty-search" id="empty-search" hidden>Ничего не найдено</p>
+      </div>
+    </dialog>
+    <div class="sparkle-layer" id="sparkle-layer" aria-hidden="true"></div>
+  </body>
+</html>

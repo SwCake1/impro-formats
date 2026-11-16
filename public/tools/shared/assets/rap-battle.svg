@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-labelledby="title">
+  <title id="title">Два микрофона рэп-баттла</title>
+  <path fill="#ffb000" stroke="#24170f" stroke-linejoin="round" stroke-width="4" d="m60 5 8 22 20-12-5 23 25-1-17 18 22 11-24 7 14 20-24-4-1 25-18-16-18 16-1-25-24 4 14-20-24-7 22-11L12 37l25 1-5-23 20 12z"/>
+  <g stroke="#24170f" stroke-linecap="round" stroke-linejoin="round" stroke-width="5">
+    <path fill="#ff2f7d" d="m23 31 12-8c5-3 12-1 15 4l5 8c3 5 1 12-4 15l-12 8z"/>
+    <path fill="none" d="m40 56 28 42M30 37l16-10m-12 17 16-10"/>
+    <path fill="#00ddeb" d="m97 31-12-8c-5-3-12-1-15 4l-5 8c-3 5-1 12 4 15l12 8z"/>
+    <path fill="none" d="M80 56 52 98m38-61L74 27m12 17L70 34"/>
+  </g>
+  <path fill="#24170f" d="M46 51h28l-5 23H51z"/>
+  <path fill="#eee7d7" d="m51 56 6 13h-5l-3-13zm10 0 2 7 3-7h5l-7 13h-4l-4-13z"/>
+</svg>

@@ -82,56 +82,11 @@
         background: var(--surface);
       }
 
-      .topbar,
       .hero__content,
       .catalog,
       .footer {
         width: min(1520px, calc(100% - 56px));
         margin-inline: auto;
-      }
-
-      .topbar {
-        display: flex;
-        gap: 12px;
-        align-items: center;
-        justify-content: flex-start;
-        min-height: 62px;
-        border-bottom: 1px solid var(--line);
-      }
-
-      .brand,
-      .project-link {
-        display: inline-flex;
-        gap: 11px;
-        align-items: center;
-        font-weight: 650;
-        text-decoration: none;
-      }
-
-      .brand {
-        font-size: 15px;
-        font-weight: 700;
-        letter-spacing: -0.02em;
-      }
-
-      .topbar__separator {
-        width: 1px;
-        height: 16px;
-        background: var(--line-strong);
-      }
-
-      .project-link {
-        gap: 7px;
-        color: var(--muted);
-        font-size: 13px;
-        font-weight: 500;
-        letter-spacing: 0;
-        white-space: nowrap;
-        transition: color 150ms ease;
-      }
-
-      .project-link:hover {
-        color: var(--accent-strong);
       }
 
       .footer a:hover {
@@ -358,7 +313,6 @@
       }
 
       @media (max-width: 900px) {
-        .topbar,
         .hero__content,
         .catalog,
         .footer {
@@ -394,13 +348,6 @@
 
         .filters-toggle[aria-expanded='true'] .filters-toggle__arrow {
           transform: rotate(180deg);
-        }
-
-      }
-
-      @media (max-width: 700px) {
-        .topbar {
-          padding-block: 11px;
         }
 
       }
@@ -544,25 +491,35 @@
       media="print"
       onload="this.media='all'"
     />
+    <link rel="stylesheet" href="/portal/styles.css" />
+    <script src="/portal/navigation.js" defer></script>
     <title>Форматы импровизации — каталог игр и правил</title>
   </head>
   <body>
     <header class="hero">
-      <nav class="topbar" aria-label="Основная навигация">
-        <a class="brand" href="./" aria-label="К началу каталога">
-          <span>Форматы</span>
-        </a>
-        <span class="topbar__separator" aria-hidden="true"></span>
-        <a
-          class="project-link"
-          href="https://swcake1.github.io/impro-toys/index.html"
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="Инструменты для импровизации, открыть в новой вкладке"
-        >
-          <span>Инструменты</span>
-          <span aria-hidden="true">↗</span>
-        </a>
+      <div class="portal-header" data-portal-root="./">
+        <nav class="portal-nav" aria-label="Основная навигация">
+          <a class="portal-brand" href="./" data-formats-link>ImproFormats</a>
+          <a class="portal-section" href="./" data-formats-link aria-current="page">Форматы</a>
+          <div class="portal-tools">
+            <a class="portal-section" href="./tools/">Инструменты</a>
+            <details class="portal-picker">
+              <summary aria-label="Выбрать инструмент"><span aria-hidden="true">⌄</span></summary>
+              <div class="portal-menu">
+                <a class="portal-all-tools" href="./tools/">Все инструменты</a>
+                <div class="portal-menu-links"></div>
+              </div>
+            </details>
+          </div>
+        </nav>
+      </div>
+      <nav class="portal-shortcuts" aria-label="Быстрый запуск инструментов">
+        <span class="portal-shortcuts-label">Инструменты</span>
+        <a href="./tools/word/">Слова</a>
+        <a href="./tools/emotion/">Эмоции</a>
+        <a href="./tools/locations/">Локации</a>
+        <a href="./tools/bell/">Звонок</a>
+        <a class="portal-shortcuts-all" href="./tools/">Все 11 <span aria-hidden="true">→</span></a>
       </nav>
 
       <div class="hero__content">

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-labelledby="title">
+  <title id="title">Пропуск с профессией</title>
+  <rect x="24" y="27" width="78" height="78" rx="13" fill="#dbe6b9" stroke="#65764b" stroke-width="3" transform="rotate(7 63 66)"/>
+  <rect x="17" y="20" width="80" height="80" rx="13" fill="#fffaf0" stroke="#38432c" stroke-width="4"/>
+  <path d="M17 34a14 14 0 0 1 14-14h52a14 14 0 0 1 14 14v9H17Z" fill="#b9d77e"/>
+  <rect x="45" y="14" width="24" height="14" rx="5" fill="#f5ead5" stroke="#38432c" stroke-width="3"/>
+  <circle cx="39" cy="62" r="9" fill="#e0b484"/>
+  <path d="M26 86c0-10 5-15 13-15s13 5 13 15" fill="#65764b"/>
+  <path d="M65 59h17M65 70h17M65 81h10" fill="none" stroke="#65764b" stroke-width="4" stroke-linecap="round"/>
+</svg>

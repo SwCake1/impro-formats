@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-labelledby="title">
+  <title id="title">Звонок</title>
+  <defs>
+    <linearGradient id="brass" x1="24" y1="16" x2="96" y2="104" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#f3ca65"/>
+      <stop offset="0.52" stop-color="#c8872f"/>
+      <stop offset="1" stop-color="#7d3d22"/>
+    </linearGradient>
+  </defs>
+  <path d="M60 20c-21 0-33 17-33 38v19c0 4-2 7-6 9h78c-4-2-6-5-6-9V58c0-21-12-38-33-38Z" fill="url(#brass)" stroke="#6b2a24" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M48 22c1-8 5-12 12-12s11 4 12 12" fill="none" stroke="#6b2a24" stroke-width="4" stroke-linecap="round"/>
+  <path d="M17 86h86" stroke="#6b2a24" stroke-width="6" stroke-linecap="round"/>
+  <path d="M50 94c1 10 5 16 10 16s9-6 10-16" fill="#9a5428" stroke="#6b2a24" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M37 45c3-8 9-13 17-15" fill="none" stroke="#ffe3a0" stroke-width="5" stroke-linecap="round" opacity=".7"/>
+</svg>

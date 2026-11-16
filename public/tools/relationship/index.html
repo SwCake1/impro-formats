@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Генератор отношений между двумя персонажами для импровизационной сцены."
+    />
+    <title>Генератор отношений — инструменты для импровизации</title>
+    <link rel="stylesheet" href="../shared/styles.css" />
+    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="../../portal/styles.css" />
+  <script src="../../portal/navigation.js" defer></script>
+</head>
+  <body class="rel-page">
+    <div class="portal-header" data-portal-root="../../" data-portal-tool="relationship">
+      <nav class="portal-nav" aria-label="Основная навигация">
+        <a class="portal-brand" href="../../" data-formats-link>ImproFormats</a>
+        <a class="portal-section" href="../../" data-formats-link>Форматы</a>
+        <div class="portal-tools is-active">
+          <a class="portal-section" href="../../tools/">Инструменты</a>
+          <details class="portal-picker">
+            <summary aria-label="Выбрать инструмент"><span aria-hidden="true">⌄</span></summary>
+            <div class="portal-menu">
+              <a class="portal-all-tools" href="../../tools/">Все инструменты</a>
+              <div class="portal-menu-links"></div>
+            </div>
+          </details>
+        </div>
+      </nav>
+    </div>
+    
+
+    <main class="rel-shell">
+      <header class="rel-header">
+        <p class="rel-eyebrow">Между двумя персонажами</p>
+        <h1 class="rel-title">Кто вы друг другу</h1>
+      </header>
+
+      <section class="rel-stage" aria-labelledby="rel-stage-title">
+        <h2 id="rel-stage-title" class="visually-hidden">Отношения двух игроков</h2>
+
+        <div id="card" class="rel-card" data-state="idle">
+          <p id="bondLabel" class="rel-card__label">Нажмите кнопку, чтобы получить отношения</p>
+          <p id="deckCounter" class="rel-counter" aria-hidden="true"></p>
+        </div>
+
+        <p id="liveResult" class="visually-hidden" aria-live="polite" aria-atomic="true"></p>
+      </section>
+
+      <div class="rel-controls">
+        <button id="newButton" class="rel-primary" type="button">
+          <span class="rel-primary__text">Новые отношения</span>
+        </button>
+
+        <button id="backButton" class="rel-undo" type="button" disabled>
+          <span class="rel-undo__mark" aria-hidden="true">↺</span>
+          <span class="rel-undo__text">Вернуть предыдущие</span>
+        </button>
+      </div>
+
+      <p class="rel-hint">Пробел или Enter — новые отношения</p>
+    </main>
+
+    <noscript>
+      <p class="noscript-message">Для генерации отношений нужен включённый JavaScript.</p>
+    </noscript>
+
+    <script src="./relationships.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>

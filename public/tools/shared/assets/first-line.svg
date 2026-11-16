@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-labelledby="title">
+  <title id="title">Софит и первая реплика в луче света</title>
+  <defs>
+    <linearGradient id="beam" x1="60" y1="16" x2="60" y2="104" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#d49b47" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#d49b47" stop-opacity="0.08"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#beam)" d="M52 18h16l30 84H22z"/>
+  <g stroke="#24170f" stroke-linecap="round" stroke-linejoin="round" stroke-width="5">
+    <rect fill="#24170f" x="50" y="10" width="20" height="12" rx="3"/>
+    <path fill="none" d="M60 22v0"/>
+    <path fill="none" stroke="#8f2f32" stroke-width="6" d="M44 84h32"/>
+  </g>
+  <circle fill="#d49b47" cx="60" cy="66" r="7"/>
+</svg>
