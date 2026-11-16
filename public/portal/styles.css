@@ -6,6 +6,8 @@
 .portal-header {
   --portal-surface: #fdfbf6;
   --portal-ink: #29283a;
+  --portal-button-background: #414677;
+  --portal-button-text: #fff;
   --portal-line: color-mix(in srgb, var(--portal-ink) 14%, transparent);
   --portal-hover: color-mix(in srgb, var(--portal-ink) 6%, var(--portal-surface));
   --portal-selected: color-mix(in srgb, var(--portal-ink) 11%, var(--portal-surface));
@@ -58,7 +60,7 @@ body:has(.portal-header:not([data-portal-tool])) {
 
 .portal-header a:focus-visible,
 .portal-picker summary:focus-visible {
-  outline: 2px solid currentColor;
+  outline: 2px solid var(--portal-ink);
   outline-offset: 2px;
   box-shadow: none;
 }
@@ -78,10 +80,12 @@ body:has(.portal-header:not([data-portal-tool])) {
   justify-content: center;
   gap: 8px;
   padding: 8px 14px;
-  border: 1px solid var(--portal-line);
+  border: 1px solid transparent;
   border-radius: 10px;
+  background: var(--portal-button-background);
+  color: var(--portal-button-text);
   list-style: none;
-  font-weight: 600;
+  font-weight: 700;
   user-select: none;
 }
 
@@ -97,7 +101,7 @@ body:has(.portal-header:not([data-portal-tool])) {
 
 .portal-picker summary:hover,
 .portal-picker[open] summary {
-  background: var(--portal-hover);
+  background: color-mix(in srgb, var(--portal-button-background) 88%, var(--portal-button-text));
 }
 
 .portal-header .portal-icon,
@@ -170,6 +174,8 @@ body:has(.portal-header:not([data-portal-tool])) {
 }
 
 .portal-header[data-portal-tool] {
+  --portal-button-background: var(--portal-ink);
+  --portal-button-text: var(--portal-surface);
   z-index: 350;
 }
 
