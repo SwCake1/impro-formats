@@ -127,6 +127,7 @@ body:has(.portal-header:not([data-portal-tool])) {
 }
 
 .portal-menu {
+  --portal-icon-color: light-dark(#62649a, #b7b7ec);
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
@@ -140,6 +141,63 @@ body:has(.portal-header:not([data-portal-tool])) {
   box-shadow: 0 16px 48px #00000026;
   scrollbar-width: thin;
   scrollbar-color: var(--portal-line) transparent;
+}
+
+.portal-menu .portal-icon {
+  width: 28px;
+  height: 28px;
+  padding: 4px;
+  border-radius: 7px;
+  color: var(--portal-icon-color);
+  background: light-dark(
+    color-mix(in srgb, currentColor 10%, #fff),
+    color-mix(in srgb, currentColor 14%, #14161d)
+  );
+  stroke-width: 1.8;
+}
+
+.portal-menu [data-tool='bell'] {
+  --portal-icon-color: light-dark(#95601b, #eec66a);
+}
+
+.portal-menu [data-tool='word'] {
+  --portal-icon-color: light-dark(#9b6a15, #ecc86d);
+}
+
+.portal-menu [data-tool='letters'] {
+  --portal-icon-color: light-dark(#c15441, #f59d86);
+}
+
+.portal-menu [data-tool='emotion'] {
+  --portal-icon-color: light-dark(#7653b1, #c5a1f3);
+}
+
+.portal-menu [data-tool='rap-battle'] {
+  --portal-icon-color: light-dark(#be2e69, #ff7faf);
+}
+
+.portal-menu [data-tool='locations'] {
+  --portal-icon-color: light-dark(#a36b10, #f1c16b);
+}
+
+.portal-menu [data-tool='relationship'] {
+  --portal-icon-color: light-dark(#287571, #7fd1bd);
+}
+
+.portal-menu [data-tool='first-line'] {
+  --portal-icon-color: light-dark(#4475ad, #8cb7ed);
+}
+
+.portal-menu [data-tool='genres'] {
+  --portal-icon-color: light-dark(#ba552b, #ffa371);
+}
+
+.portal-menu [data-tool='professions'] {
+  --portal-icon-color: light-dark(#657e28, #b8d679);
+}
+
+.portal-menu [data-tool='characters'] {
+  --portal-icon-color: light-dark(#ba4472, #f791ae);
 }
 
 .portal-menu a {
@@ -228,27 +286,6 @@ body:has(.portal-header:not([data-portal-tool])) {
 body:has([data-portal-tool='characters']) .toolbar {
   padding-top: calc(80px + env(safe-area-inset-top, 0px));
   justify-content: flex-end;
-}
-
-body:has([data-portal-tool='professions']) .page-header {
-  margin-top: calc(64px + env(safe-area-inset-top, 0px));
-  min-height: 80px;
-  grid-template-columns: 1fr auto;
-}
-
-body:has([data-portal-tool='professions']) .page-header h1 {
-  grid-column: 1;
-  grid-row: 1;
-  justify-self: start;
-}
-
-body:has([data-portal-tool='professions']) .page-header .sound-button {
-  grid-column: 2;
-  grid-row: 1;
-}
-
-body:has([data-portal-tool='professions']) .workspace {
-  min-height: calc(100svh - 144px - env(safe-area-inset-top, 0px));
 }
 
 body:has([data-portal-tool='genres']) .masthead {

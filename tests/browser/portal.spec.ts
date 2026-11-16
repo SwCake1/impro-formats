@@ -39,6 +39,24 @@ test('opens every tool directly through the shared switcher', async ({ page, con
   expect(context.pages()).toHaveLength(1);
 });
 
+test('keeps profession navigation and sound controls in one row', async ({ page }) => {
+  await page.goto('/tools/professions/');
+  const sound = page.locator('.portal-header #sound-button');
+  const summary = page.locator('.portal-picker summary');
+  await expect(sound).toBeVisible();
+  const soundBounds = await sound.boundingBox();
+  const summaryBounds = await summary.boundingBox();
+  expect(soundBounds!.y + soundBounds!.height / 2).toBe(summaryBounds!.y + summaryBounds!.height / 2);
+  expect(soundBounds!.x + soundBounds!.width).toBeLessThan(summaryBounds!.x);
+  const count = await page.locator('#counter').textContent();
+  await sound.click();
+  await expect(sound).toHaveAttribute('aria-pressed', 'false');
+  await sound.focus();
+  await page.keyboard.press('Space');
+  await expect(sound).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#counter')).toHaveText(count!);
+});
+
 test('restores the catalog search and filters after using a tool', async ({ page }) => {
   await page.goto('/?q=сцена&form=Короткая+форма&video=yes&filters=3');
   await expect(page.locator('.cue-search')).not.toHaveAttribute('inert');

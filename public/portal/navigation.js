@@ -36,6 +36,7 @@
   for (const [slug, title, iconPath] of tools) {
     const link = document.createElement('a');
     link.href = new URL(`tools/${slug}/`, root).href;
+    link.dataset.tool = slug;
     const label = document.createElement('span');
     label.textContent = title;
     link.append(createIcon(iconPath), label);
