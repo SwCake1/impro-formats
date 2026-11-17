@@ -61,7 +61,10 @@
       button,
       a,
       select,
-      input { -webkit-tap-highlight-color: transparent; }
+      input {
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+      }
 
       button { color: inherit; }
       a { color: inherit; }
@@ -102,7 +105,6 @@
         display: block;
       }
 
-      .section-kicker,
       .footer__label {
         margin: 0;
         color: var(--accent-strong);
@@ -118,7 +120,7 @@
         font-family: 'Literata', Georgia, serif;
         font-size: clamp(38px, 5vw, 62px);
         font-weight: 500;
-        letter-spacing: -0.045em;
+        letter-spacing: -0.035em;
         line-height: 1.02;
       }
 
@@ -161,7 +163,7 @@
         align-items: center;
         padding: 4px 12px 6px;
         color: var(--muted);
-        font-size: 10px;
+        font-size: 11px;
         font-weight: 650;
         letter-spacing: 0.06em;
         text-transform: uppercase;
@@ -246,7 +248,7 @@
       }
 
       .cue-search input::placeholder {
-        color: color-mix(in srgb, var(--muted) 82%, transparent);
+        color: var(--muted);
         font-weight: 400;
       }
 
@@ -296,11 +298,6 @@
         backdrop-filter: blur(14px);
       }
 
-      .results__heading h2 {
-        margin-top: 4px;
-        font-size: 21px;
-      }
-
       .formats-list {
         display: grid;
         gap: 9px;
@@ -319,29 +316,67 @@
           width: min(100% - 32px, 760px);
         }
 
-        .cue-search { margin-top: 22px; }
+        .hero__content { padding-block: 16px; }
+
+        .hero h1 {
+          margin-bottom: 0;
+          font-size: clamp(29px, 8.5vw, 38px);
+        }
+
+        .hero__lead { display: none; }
+
+        .cue-search {
+          margin-top: 14px;
+          padding-block: 3px 4px;
+        }
+
+        .cue-search input { min-height: 44px; }
 
         .catalog {
           grid-template-columns: 1fr;
-          gap: 12px;
-          padding-block: 20px 54px;
+          padding-block: 12px 54px;
+        }
+
+        .results__heading {
+          top: var(--portal-header-height);
+          gap: 8px;
+          margin-bottom: 8px;
+          padding: 4px 0;
+          border: 0;
+          border-radius: 0;
+          background: var(--canvas);
+          backdrop-filter: none;
+        }
+
+        .results__heading h2 {
+          min-width: 0;
+          margin-right: auto;
+          font-size: 18px;
+        }
+
+        .results__heading .button {
+          min-height: 44px;
+          padding-inline: 8px;
         }
 
         .filters-toggle {
           display: flex;
-          width: 100%;
-          min-height: 48px;
+          flex: none;
+          gap: 6px;
+          min-height: 44px;
           align-items: center;
-          padding: 11px 15px;
+          padding: 8px 10px;
           border: 1px solid var(--line);
-          border-radius: 12px;
+          border-radius: 10px;
           background: var(--surface);
           cursor: pointer;
+          font-size: 13px;
           font-weight: 650;
         }
 
         .filters-toggle__arrow {
-          margin-left: auto;
+          width: 14px;
+          height: 14px;
           color: var(--accent-strong);
           transition: transform 150ms ease;
         }
@@ -353,9 +388,6 @@
       }
 
       @media (max-width: 560px) {
-        .hero__content { padding-block: 28px 25px; }
-        .hero h1 { font-size: clamp(36px, 11.5vw, 48px); }
-        .cue-search { margin-top: 20px; }
         .cue-search__label-row { padding-inline: 8px; }
 
         .cue-search__field svg {
@@ -409,6 +441,7 @@
         }
         .filters.is-open {
           max-height: 2000px;
+          margin-bottom: 12px;
           padding: 16px;
           border: 1px solid var(--line);
           background: var(--surface);
@@ -554,7 +587,7 @@
               id="searchInput"
               type="search"
               autocomplete="off"
-              placeholder="Например, детектив или музыкальный джем"
+              placeholder="Например, детектив"
             />
             <button id="clearSearch" class="icon-button cue-search__clear" type="button" aria-label="Очистить поиск" hidden>
               <span aria-hidden="true">×</span>
@@ -566,19 +599,6 @@
     </header>
 
     <main class="catalog" id="catalog">
-      <button
-        id="filtersToggle"
-        disabled
-        class="filters-toggle"
-        type="button"
-        aria-controls="filtersPanel"
-        aria-expanded="false"
-      >
-        <span>Фильтры</span>
-        <span id="activeFiltersCount" class="count-badge" hidden>0</span>
-        <span class="filters-toggle__arrow" aria-hidden="true">↓</span>
-      </button>
-
       <aside id="filtersPanel" class="filters" aria-label="Фильтры каталога" aria-busy="true">
         <div id="filtersLoading" class="filters-skeleton" aria-hidden="true">
           <div class="filters-skeleton__title"></div>
@@ -684,16 +704,20 @@
       ></div>
 
       <section class="results" aria-labelledby="resultsHeading">
-        <div id="selectedFilters" class="selected-filters" aria-label="Выбранные фильтры" hidden></div>
         <div class="results__heading">
-          <div>
-            <p class="section-kicker">Результаты</p>
-            <h2 id="resultsHeading" tabindex="-1"><span id="resultsCount">Загружаем</span> <span id="resultsUnit">форматы…</span></h2>
-          </div>
-          <button id="resetFilters" class="button button--quiet" type="button" hidden>
-            Сбросить фильтры
+          <h2 id="resultsHeading" tabindex="-1"><span id="resultsCount">Загружаем</span> <span id="resultsUnit">форматы…</span></h2>
+          <button id="resetFilters" class="button button--quiet" type="button" aria-label="Сбросить фильтры" hidden>
+            Сбросить
+          </button>
+          <button id="filtersToggle" class="filters-toggle" type="button" aria-controls="filtersPanel" aria-expanded="false" disabled>
+            <span>Фильтры</span>
+            <span id="activeFiltersCount" class="count-badge" hidden>0</span>
+            <svg class="filters-toggle__arrow" aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m4 6 4 4 4-4" />
+            </svg>
           </button>
         </div>
+        <div id="selectedFilters" class="selected-filters" aria-label="Выбранные фильтры" hidden></div>
         <div id="catalogLoading" class="catalog-loading">
           <div class="format-skeleton" aria-hidden="true"></div>
           <div class="format-skeleton" aria-hidden="true"></div>

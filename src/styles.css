@@ -793,10 +793,8 @@ html:has(.sources-dialog[open]) {
   .tape-filter, .select-field select, .selected-filter { min-height: 44px; }
   .filter-disclosure__title { min-height: 44px; }
   .filter-heading .text-button { min-height: 44px; }
-  .filters-toggle { gap: 8px; }
   .select-field { grid-template-columns: minmax(0, 1fr) minmax(152px, 1.1fr); }
   .select-field select { font-size: 16px; }
-  .results__heading { position: sticky; top: var(--portal-header-height); }
 
   @media (prefers-reduced-motion: reduce) {
     .filters,

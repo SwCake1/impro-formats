@@ -35,6 +35,7 @@ const propsFilter = element<HTMLSelectElement>('#propsFilter');
 const furnitureFilter = element<HTMLSelectElement>('#furnitureFilter');
 const resultsCount = element<HTMLElement>('#resultsCount');
 const resultsHeading = element<HTMLElement>('#resultsHeading');
+const resultsSummary = element<HTMLElement>('.results__heading');
 const formatsList = element<HTMLElement>('#formatsList');
 const catalogLoading = element<HTMLElement>('#catalogLoading');
 const emptyState = element<HTMLElement>('#emptyState');
@@ -655,22 +656,40 @@ function collapseFilters(onComplete?: () => void): void {
   fallbackId = window.setTimeout(finish, 420);
 }
 function scrollToResultsSummary(): void {
-  const resultsSummary = resultsHeading.closest<HTMLElement>('.results__heading') ?? resultsHeading;
   resultsHeading.focus({ preventScroll: true });
-  resultsSummary.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  if (resizablePanelsQuery.matches) {
+    resultsSummary.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } else {
+    scrollToCatalogTop();
+  }
 }
 function scrollToCatalogTop(): void {
-  element<HTMLElement>('#catalog').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  catalog.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+}
+function positionFiltersPanel(): void {
+  const active = document.activeElement;
+  if (resizablePanelsQuery.matches) {
+    filtersResizeHandle.before(filtersPanel);
+  } else {
+    resultsSummary.after(filtersPanel);
+  }
+  if (active instanceof HTMLElement && filtersPanel.contains(active)) {
+    const panelVisible = resizablePanelsQuery.matches || filtersPanel.classList.contains('is-open');
+    (panelVisible ? active : filtersToggle).focus({ preventScroll: true });
+  }
 }
 filtersToggle.addEventListener('click', () => {
+  const panelAboveToolbar = filtersPanel.getBoundingClientRect().top < resultsSummary.getBoundingClientRect().bottom;
   const open = filtersPanel.classList.toggle('is-open');
   filtersToggle.setAttribute('aria-expanded', String(open));
+  if (open && panelAboveToolbar) scrollToCatalogTop();
 });
 showFilterResults.addEventListener('click', () => {
   collapseFilters(scrollToResultsSummary);
 });
-resultsHeading.closest<HTMLElement>('.results__heading')?.addEventListener('click', (event) => {
-  if ((event.target as HTMLElement).closest('button')) return;
+resultsSummary.addEventListener('click', (event) => {
+  if (!resizablePanelsQuery.matches || (event.target as HTMLElement).closest('button')) return;
   scrollToCatalogTop();
 });
 filtersPanel.addEventListener('keydown', (event) => {
@@ -679,11 +698,7 @@ filtersPanel.addEventListener('keydown', (event) => {
     filtersToggle.focus();
   }
 });
-resizablePanelsQuery.addEventListener('change', ({ matches }) => {
-  if (!matches && filtersPanel.contains(document.activeElement) && !filtersPanel.classList.contains('is-open')) {
-    filtersToggle.focus();
-  }
-});
+resizablePanelsQuery.addEventListener('change', positionFiltersPanel);
 closeDetail.addEventListener('click', closeSelectedFormat);
 detailBackdrop.addEventListener('click', closeSelectedFormat);
 copyLink.addEventListener('click', () => void copyCurrentLink());
@@ -699,6 +714,7 @@ if (cached) {
 
 function startApp(): void {
   appStyles.media = 'all';
+  if (!resizablePanelsQuery.matches) positionFiltersPanel();
   document.documentElement.classList.remove('app-starting');
   element('.cue-search').inert = false;
   filtersToggle.disabled = false;

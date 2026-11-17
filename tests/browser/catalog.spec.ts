@@ -17,6 +17,37 @@ test.beforeEach(async ({ page }) => {
   await page.route('**/data/formats.json', route => route.fulfill({ json: catalog }));
 });
 
+test('shows a complete format below the mobile results toolbar', async ({ page }, info) => {
+  test.skip(info.project.name !== 'mobile');
+  await page.setViewportSize({ width: 390, height: 664 });
+  await page.route('**/data/formats.json', route => route.fulfill({
+    json: {
+      ...catalog,
+      records: [{
+        ...record,
+        description: 'Модератор берёт у зрителей несколько жанров. Актёры начинают сцену, '
+          + 'а по сигналу продолжают историю в другом жанре. Игра заканчивается, '
+          + 'когда актёры использовали все жанры из списка.',
+      }],
+    },
+  }));
+  await page.goto('/');
+
+  const toolbar = page.locator('.results__heading');
+  const toggle = toolbar.getByRole('button', { name: 'Фильтры', exact: true });
+  const panel = page.locator('#filtersPanel');
+  await expect(toolbar.getByRole('heading')).toHaveText('1 формат');
+  await expect(toggle).toBeInViewport();
+  await expect(page.locator('.format-row').first()).toBeInViewport({ ratio: 1 });
+
+  await toggle.press('Enter');
+  await expect(panel).toBeVisible();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  await panel.getByRole('button', { name: 'Показать 1 формат', exact: true }).click();
+  await expect(toolbar.getByRole('heading')).toBeFocused();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+});
+
 test('keeps a direct link during first load and opens the requested format', async ({ page }) => {
   let release!: () => void;
   const pending = new Promise<void>(resolve => { release = resolve; });
