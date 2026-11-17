@@ -543,13 +543,14 @@ function updateSelectFilters(): void {
 }
 
 async function copyCurrentLink(): Promise<void> {
+  const text = `${detailTitle.textContent}: ${window.location.href}`;
   try {
-    await navigator.clipboard.writeText(window.location.href);
+    await navigator.clipboard.writeText(text);
     showToast('Ссылка скопирована');
   } catch {
     const previousFocus = document.activeElement as HTMLElement | null;
     const input = document.createElement('textarea');
-    input.value = window.location.href;
+    input.value = text;
     input.style.position = 'fixed';
     input.style.opacity = '0';
     // Keep the fallback inside the dialog so it remains usable while the background is inert.

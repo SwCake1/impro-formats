@@ -274,7 +274,7 @@ test('copies the current link with the primary clipboard API', async ({ page }) 
   await page.goto('/?format=test-format');
   await page.locator('#copyLink').click();
   await expect(page.locator('#toast')).toHaveText('Ссылка скопирована');
-  expect(await page.evaluate(() => (window as Window & { copiedLink?: string }).copiedLink)).toBe(page.url());
+  expect(await page.evaluate(() => (window as Window & { copiedLink?: string }).copiedLink)).toBe(`${await page.locator('#detailTitle').textContent()}: ${page.url()}`);
 });
 
 test('resizes panels with the keyboard and restores their saved width', async ({ page }, info) => {
