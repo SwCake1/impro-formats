@@ -102,6 +102,28 @@ test('shows only explicit requirements with decorative icons', async ({ page }) 
   await expect(requirements).not.toContainText(/Не нужен|Не указано/);
 });
 
+test('puts rules before requirements and keeps the original text', async ({ page }) => {
+  const sentence = 'Модератор собирает у зала жанры, а актёры меняют стиль сцены по его сигналу.';
+  const longParagraph = Array.from({ length: 7 }, () => sentence).join(' ');
+  const authoredParagraph = 'Первый вариант: переиграть сцену.\nВторой вариант: продолжить историю.';
+  await page.route('**/data/formats.json', route => route.fulfill({
+    json: {
+      ...catalog,
+      records: [{ ...record, description: `${longParagraph}\n\n${authoredParagraph}` }],
+    },
+  }));
+  await page.goto('/?format=test-format');
+
+  const paragraphs = page.locator('#detailDescription p');
+  await expect(paragraphs.last()).toHaveJSProperty('textContent', authoredParagraph);
+  const text = await paragraphs.allTextContents();
+  expect(text.length).toBeGreaterThan(2);
+  expect(text.slice(0, -1).join(' ')).toBe(longParagraph);
+  const requirements = await page.locator('#detailRequirementsSection').boundingBox();
+  const rules = await page.locator('#detailDescription').boundingBox();
+  expect(rules!.y + rules!.height).toBeLessThan(requirements!.y);
+});
+
 test('preserves video text, links URLs and opens them by keyboard in a new tab', async ({ page, context }) => {
   const video = 'Показ: https://example.test/watch?v=1&lang=ru.\nРепетиция (https://example.test/clip_(part)).\nwww.example.test/video';
   await context.route('https://example.test/**', route => route.fulfill({

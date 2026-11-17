@@ -384,6 +384,23 @@ function findRecordById(id: string | null): FormatRecord | undefined {
   return records.find((record) => record.id === id);
 }
 
+function descriptionParagraphs(description: string): string[] {
+  return description.split(/\r?\n(?:[ \t]*\r?\n)+/).flatMap(paragraph => {
+    if (paragraph.length <= 420 || paragraph.includes('\n')) return [paragraph];
+
+    const segmenter = new Intl.Segmenter('ru', { granularity: 'sentence' });
+    const parts: string[] = [];
+    let start = 0;
+    for (const { index } of segmenter.segment(paragraph)) {
+      if (index - start < 220 || paragraph.length - index < 120) continue;
+      parts.push(paragraph.slice(start, index).trim());
+      start = index;
+    }
+    parts.push(paragraph.slice(start).trim());
+    return parts;
+  });
+}
+
 function renderVideo(text: string): void {
   detailVideoSection.hidden = !text;
   detailVideo.replaceChildren();
@@ -425,7 +442,11 @@ function renderDetail(): void {
   detailEmpty.hidden = true;
   detailContent.hidden = false;
   detailTitle.textContent = record.title;
-  detailDescription.textContent = record.description || 'Описание пока не добавлено.';
+  detailDescription.replaceChildren(...descriptionParagraphs(record.description || 'Описание пока не добавлено.').map(text => {
+    const paragraph = document.createElement('p');
+    paragraph.textContent = text;
+    return paragraph;
+  }));
   detailTags.replaceChildren();
   [...record.forms, ...record.features].forEach((tag) => appendTag(detailTags, tag));
   // Подборки временно скрыты в открытом формате.
@@ -444,6 +465,10 @@ function renderDetail(): void {
   detailNote.textContent = record.note;
   renderVideo(record.video);
 
+  if (detailContent.dataset.formatId !== record.id) {
+    detailContent.dataset.formatId = record.id;
+    detailPanel.scrollTop = 0;
+  }
   detailDialog.sync(true, () => formatButton(record.id));
 }
 
