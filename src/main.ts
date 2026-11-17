@@ -61,6 +61,8 @@ const detailVideo = element<HTMLElement>('#detailVideo');
 const closeDetail = element<HTMLButtonElement>('#closeDetail');
 const copyLink = element<HTMLButtonElement>('#copyLink');
 const toast = element<HTMLElement>('#toast');
+const sourcesDialog = element<HTMLDialogElement>('#sourcesDialog');
+const sourcesTrigger = element<HTMLButtonElement>('#sourcesTrigger');
 
 const positionStorageKey = `improformats.catalog-position:${new URL('.', location.href).pathname}`;
 let savedPosition: { url: string; top: number; detailTop: number } | null = null;
@@ -598,6 +600,13 @@ async function loadFreshData(): Promise<void> {
     }
   }
 }
+
+sourcesTrigger.addEventListener('click', () => sourcesDialog.showModal());
+sourcesDialog.addEventListener('click', event => {
+  if (event.target === sourcesDialog) sourcesDialog.close();
+});
+// Escape should close only the topmost dialog.
+sourcesDialog.addEventListener('keydown', event => event.stopPropagation());
 
 searchInput.addEventListener('input', () => {
   filters.query = searchInput.value;

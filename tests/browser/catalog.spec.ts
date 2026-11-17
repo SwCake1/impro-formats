@@ -379,3 +379,65 @@ test('does not load analytics in development', async ({ page }) => {
   await expect(page.locator('.format-row')).toHaveCount(2);
   expect(analytics).toEqual([]);
 });
+
+test('opens sources over the catalog and restores focus and reading position', async ({ page }) => {
+  await page.goto('/?q=Тестовый');
+  await expect(page.locator('.format-row')).toHaveCount(1);
+  const trigger = page.getByRole('button', { name: 'Источники и благодарности', exact: true });
+  await trigger.scrollIntoViewIfNeeded();
+  const readingPosition = await page.evaluate(() => scrollY);
+  const catalogUrl = page.url();
+  const dialog = page.getByRole('dialog', { name: 'Источники и благодарности' });
+  const close = dialog.getByRole('button', { name: 'Закрыть', exact: true });
+  const table = dialog.getByRole('link', { name: 'таблице форматов', exact: true });
+
+  await trigger.focus();
+  await page.keyboard.press('Enter');
+  await expect(dialog).toBeVisible();
+  await expect(page).toHaveURL(catalogUrl);
+  await expect(close).toBeFocused();
+  await expect(dialog.getByRole('link', { name: 'Алла Москвичёва', exact: false })).toBeVisible();
+  await expect(table).toHaveAttribute('href', 'https://docs.google.com/spreadsheets/d/1AfoTVt6XzkpTk8UZAfBpzQlpSSKTyRkziyt4cglOMKU/edit');
+  await expect(dialog).toHaveCSS('font-size', '12px');
+  await expect(table).toHaveCSS('font-weight', '400');
+  await expect(table).toHaveCSS('display', 'inline');
+  const author = dialog.getByRole('link', { name: 'Алла Москвичёва', exact: false });
+  await page.locator('#searchInput').evaluate(node => node.focus());
+  await expect(close).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(author).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(table).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
+  await expect(author).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
+  await expect(close).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect(trigger).toBeFocused();
+  expect(await page.evaluate(() => scrollY)).toBe(readingPosition);
+
+  await trigger.click();
+  await close.click();
+  await expect(dialog).toBeHidden();
+  await expect(trigger).toBeFocused();
+  await trigger.click();
+  await dialog.getByRole('heading', { name: 'Источники и благодарности', exact: true }).click();
+  await expect(dialog).toBeVisible();
+  await page.mouse.click(1, 1);
+  await expect(dialog).toBeHidden();
+  await expect(trigger).toBeFocused();
+  await expect(page.locator('#searchInput')).toHaveValue('Тестовый');
+});
+
+test('keeps the selected format open when Escape closes sources', async ({ page }, info) => {
+  test.skip(info.project.name !== 'desktop');
+  await page.goto('/?format=test-format');
+  await expect(page.locator('#detailContent')).toBeVisible();
+  await page.getByRole('button', { name: 'Источники и благодарности', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: 'Источники и благодарности' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#sourcesDialog')).not.toHaveAttribute('open');
+  await expect(page.locator('#detailContent')).toBeVisible();
+  await expect(page).toHaveURL(/format=test-format/);
+});
