@@ -287,6 +287,24 @@ test('traps focus in the mobile dialog and restores it when closed', async ({ pa
   await expect(dialog).toBeHidden();
 });
 
+test('keeps the format dialog scrollable after rotating a phone', async ({ page }, info) => {
+  test.skip(info.project.name !== 'mobile');
+  await page.route('**/data/formats.json', route => route.fulfill({
+    json: { ...catalog, records: [{ ...record, description: `${record.description}. `.repeat(80) }] },
+  }));
+  await page.goto('/?format=test-format');
+  const dialog = page.getByRole('dialog', { name: record.title });
+  await expect(dialog).toBeInViewport({ ratio: 1 });
+
+  await page.setViewportSize({ width: 844, height: 390 });
+  await expect(dialog).toBeInViewport({ ratio: 1 });
+  const copyLink = dialog.getByRole('button', { name: 'Копировать ссылку' });
+  await expect(copyLink).not.toBeInViewport();
+  await dialog.evaluate(panel => { panel.scrollTop = panel.scrollHeight; });
+  await expect(copyLink).toBeInViewport({ ratio: 1 });
+  await expect(dialog.getByRole('button', { name: 'Закрыть карточку' })).toBeInViewport({ ratio: 1 });
+});
+
 test('handles dialog focus on direct links, history and viewport changes', async ({ page }, info) => {
   test.skip(info.project.name !== 'mobile');
   await page.goto('/?format=test-format');
