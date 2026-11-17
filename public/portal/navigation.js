@@ -87,8 +87,9 @@
     event.stopPropagation();
     if (event.target.closest('a[href]')) picker.open = false;
   });
-  header.addEventListener('focusout', event => {
-    if (!header.contains(event.relatedTarget)) picker.open = false;
+  // Safari blurs the summary before dispatching a tapped link's click.
+  document.addEventListener('focusin', event => {
+    if (!header.contains(event.target)) picker.open = false;
   });
   document.addEventListener('pointerdown', event => {
     // Keep focus in the menu until its outside click is consumed below.
@@ -102,8 +103,8 @@
     event.preventDefault();
     event.stopPropagation();
   }, { capture: true });
-  window.addEventListener('pageshow', () => {
-    picker.open = false;
+  window.addEventListener('pageshow', event => {
+    if (event.persisted) picker.open = false;
     if (!isCatalog) restoreCatalogLinks();
   });
 })();

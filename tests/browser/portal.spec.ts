@@ -19,6 +19,51 @@ test.beforeEach(async ({ page }) => {
     ? route.continue() : route.abort());
 });
 
+test.describe('touch navigation', () => {
+  test.use({ hasTouch: true });
+
+  test('opens every tool by tapping its label and returns through the catalog icon', async ({ page }) => {
+    await page.goto('/');
+    const picker = page.locator('.portal-picker');
+    for (const tool of tools) {
+      await picker.locator('summary').tap();
+      await expect(picker).toHaveAttribute('open', '');
+      await picker.getByRole('link', { name: tool.name, exact: true }).locator('span').tap();
+      await expect(page).toHaveURL(`/tools/${tool.slug}/`);
+      await expect(picker.locator('summary')).toHaveText(tool.name);
+    }
+    await picker.locator('summary').tap();
+    await picker.getByRole('link', { name: 'Форматы', exact: true }).locator('svg').tap();
+    await expect(page).toHaveURL('/');
+  });
+
+  test('keeps an opened menu usable when the initial page finishes loading', async ({ page }) => {
+    let releaseImages!: () => void;
+    const imagesPending = new Promise<void>(resolve => { releaseImages = resolve; });
+    await page.route('**/stills/*.webp', async route => {
+      await imagesPending;
+      await route.continue();
+    });
+    await page.addInitScript(() => {
+      window.addEventListener('pageshow', () => { document.documentElement.dataset.pageShown = 'true'; });
+    });
+    await page.goto('/tools/genres/', { waitUntil: 'domcontentloaded' });
+    const picker = page.locator('.portal-picker');
+    try {
+      await expect(page.locator('html')).not.toHaveAttribute('data-page-shown');
+      await expect(picker.locator('.portal-menu-links a')).toHaveCount(tools.length);
+      await picker.locator('summary').tap();
+      await expect(picker).toHaveAttribute('open', '');
+    } finally {
+      releaseImages();
+    }
+    await expect(page.locator('html')).toHaveAttribute('data-page-shown', 'true');
+    await expect(picker).toHaveAttribute('open', '');
+    await picker.getByRole('link', { name: 'Профессии', exact: true }).locator('span').tap();
+    await expect(page).toHaveURL('/tools/professions/');
+  });
+});
+
 test('opens every tool directly through the shared switcher', async ({ page, context }) => {
   await page.goto('/');
   const navigation = page.getByRole('navigation', { name: 'Основная навигация' });
@@ -74,7 +119,7 @@ test('restores the catalog search and filters after using a tool', async ({ page
     .toHaveAttribute('aria-pressed', 'true');
 });
 
-test('supports keyboard navigation without triggering the emotion generator', async ({ page }) => {
+test('supports keyboard navigation without triggering the emotion generator', async ({ page, browserName }) => {
   await page.goto('/tools/emotion/');
   const count = await page.locator('#counter').textContent();
   const picker = page.locator('.portal-picker');
@@ -84,11 +129,17 @@ test('supports keyboard navigation without triggering the emotion generator', as
   await expect(picker).toHaveAttribute('open', '');
   await expect(picker.locator('.portal-menu-links a')).toHaveCount(tools.length);
   await expect(page.locator('#counter')).toHaveText(count!);
-  await page.keyboard.press('Tab');
+  // Safari uses Option+Tab to include links in keyboard navigation.
+  await page.keyboard.press(browserName === 'webkit' ? 'Alt+Tab' : 'Tab');
   await expect(picker.getByRole('link', { name: 'Форматы', exact: true })).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(picker).not.toHaveAttribute('open');
   await expect(summary).toBeFocused();
+  await page.keyboard.press('Space');
+  await page.locator('#next').focus();
+  await expect(picker).not.toHaveAttribute('open');
+  await expect(page.locator('#counter')).toHaveText(count!);
+  await summary.focus();
   await page.keyboard.press('Space');
   await picker.getByRole('link', { name: 'Слова', exact: true }).focus();
   await page.keyboard.press('Enter');

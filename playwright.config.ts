@@ -1,4 +1,4 @@
-import { defineConfig } from '@playwright/test';
+import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests/browser',
@@ -12,6 +12,11 @@ export default defineConfig({
   projects: [
     { name: 'desktop', use: { viewport: { width: 1440, height: 900 } } },
     { name: 'mobile', use: { viewport: { width: 390, height: 844 } } },
+    {
+      name: 'iphone',
+      testMatch: 'portal.spec.ts',
+      use: { ...devices['iPhone 13'], browserName: 'webkit' },
+    },
   ],
   webServer: {
     command: 'npm run dev:cached -- --host 127.0.0.1 --port 4173 --strictPort',
