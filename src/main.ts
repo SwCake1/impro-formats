@@ -21,6 +21,7 @@ const filtersPanel = element<HTMLElement>('#filtersPanel');
 const filtersLoading = element<HTMLElement>('#filtersLoading');
 const filtersContent = element<HTMLElement>('#filtersContent');
 const filtersToggle = element<HTMLButtonElement>('#filtersToggle');
+const conditionsToggle = element<HTMLButtonElement>('#conditionsToggle');
 const showFilterResults = element<HTMLButtonElement>('#showFilterResults');
 const filtersResizeHandle = element<HTMLElement>('#filtersResizeHandle');
 const detailResizeHandle = element<HTMLElement>('#detailResizeHandle');
@@ -684,6 +685,10 @@ filtersToggle.addEventListener('click', () => {
   const open = filtersPanel.classList.toggle('is-open');
   filtersToggle.setAttribute('aria-expanded', String(open));
   if (open && panelAboveToolbar) scrollToCatalogTop();
+});
+conditionsToggle.addEventListener('click', () => {
+  const expanded = conditionsToggle.getAttribute('aria-expanded') === 'true';
+  conditionsToggle.setAttribute('aria-expanded', String(!expanded));
 });
 showFilterResults.addEventListener('click', () => {
   collapseFilters(scrollToResultsSummary);

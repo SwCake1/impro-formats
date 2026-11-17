@@ -48,6 +48,29 @@ test('shows a complete format below the mobile results toolbar', async ({ page }
   await expect(toggle).toHaveAttribute('aria-expanded', 'false');
 });
 
+test('keeps mobile stage conditions collapsed until requested', async ({ page }, info) => {
+  test.skip(info.project.name !== 'mobile');
+  await page.setViewportSize({ width: 400, height: 741 });
+  await page.goto('/');
+  await expect(page.locator('.format-row')).toHaveCount(2);
+  await page.locator('#filtersToggle').click();
+
+  const panel = page.locator('#filtersPanel');
+  const conditions = panel.getByRole('button', { name: 'Условия на сцене', exact: true });
+  const props = panel.locator('#propsFilter');
+  await expect(conditions).toHaveAttribute('aria-expanded', 'false');
+  await expect(props).toBeHidden();
+  await expect(panel.getByRole('button', { name: 'Показать 2 формата' })).toBeInViewport({ ratio: 1 });
+
+  await conditions.press('Enter');
+  await props.selectOption('yes');
+  await expect(page.locator('#conditionsCount')).toHaveText('· 1');
+  await conditions.press('Space');
+  await expect(props).toBeHidden();
+  await expect(page).toHaveURL(/props=yes/);
+  await expect(page.getByRole('button', { name: 'Убрать фильтр: С реквизитом' })).toBeVisible();
+});
+
 test('keeps a direct link during first load and opens the requested format', async ({ page }) => {
   let release!: () => void;
   const pending = new Promise<void>(resolve => { release = resolve; });
@@ -381,7 +404,7 @@ test('filters formats with videos by keyboard, restores the URL and resets the f
   await expect(page.locator('.format-row')).toHaveCount(2);
   await expect(page).not.toHaveURL(/video=/);
   await checkbox.check();
-  await page.locator('#resetFiltersTop').click();
+  await page.locator(info.project.name === 'mobile' ? '#resetFilters' : '#resetFiltersTop').click();
   await expect(checkbox).not.toBeChecked();
   await expect(page.locator('.format-row')).toHaveCount(2);
   await expect(page.locator('#activeFiltersCount')).toBeHidden();
