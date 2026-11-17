@@ -1,3 +1,11 @@
+@font-face {
+  font-family: 'Barlow Condensed';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url('./fonts/barlow-condensed-latin-800.woff2') format('woff2');
+}
+
 :root {
   --portal-header-height: calc(64px + env(safe-area-inset-top, 0px));
   scroll-padding-top: var(--portal-header-height);
@@ -67,9 +75,18 @@ body:has(.portal-header:not([data-portal-tool])) {
 
 .portal-header .portal-brand {
   flex: none;
-  font-size: 16px;
-  font-weight: 750;
-  letter-spacing: -0.04em;
+  font: 800 22px/.82 'Barlow Condensed', sans-serif;
+  letter-spacing: -0.015em;
+}
+
+.portal-brand__wordmark {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.portal-brand__wordmark span:first-child {
+  color: light-dark(#414677, #b7b7ec);
 }
 
 .portal-picker {
@@ -311,10 +328,6 @@ body:has([data-portal-tool='first-line']) .fl-settings-toggle {
   .portal-nav {
     position: static;
     gap: 12px;
-  }
-
-  .portal-header .portal-brand {
-    font-size: 14px;
   }
 
   .portal-menu {
