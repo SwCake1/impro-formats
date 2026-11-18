@@ -1,6 +1,7 @@
 import { initializeAnalytics } from './analytics';
 import { initializePanelResize } from './panel-resize';
 import { createDetailDialog } from './detail-dialog';
+import { createVideoSection } from './detail-video';
 import { fetchFormats, normalizeText, readCache, writeCache } from './data';
 import { classificationOptions, countActiveFilters, DEFAULT_FILTERS, filterFormats } from './filters';
 import type { FilterState, FormatRecord, FurnitureFilter, TriState } from './types';
@@ -58,8 +59,7 @@ const detailRequirementsSection = element<HTMLElement>('#detailRequirementsSecti
 const detailRequirements = element<HTMLElement>('#detailRequirements');
 const detailNoteSection = element<HTMLElement>('#detailNoteSection');
 const detailNote = element<HTMLElement>('#detailNote');
-const detailVideoSection = element<HTMLElement>('#detailVideoSection');
-const detailVideo = element<HTMLElement>('#detailVideo');
+const renderDetailVideo = createVideoSection(element('#detailVideoSection'), element('#detailVideoItem'));
 const closeDetail = element<HTMLButtonElement>('#closeDetail');
 const copyLink = element<HTMLButtonElement>('#copyLink');
 const toast = element<HTMLElement>('#toast');
@@ -401,40 +401,12 @@ function descriptionParagraphs(description: string): string[] {
   });
 }
 
-function renderVideo(text: string): void {
-  detailVideoSection.hidden = !text;
-  detailVideo.replaceChildren();
-  let offset = 0;
-  for (const match of text.matchAll(/\b(?:https?:\/\/|www\.)[^\s<>"']+/gi)) {
-    // Пунктуация вокруг ссылки остаётся частью исходного текста.
-    let label = match[0].replace(/[.,;:!?]+$/, '');
-    const brackets = [['(', ')'], ['[', ']'], ['{', '}']] as const;
-    while (brackets.some(([open, close]) => label.endsWith(close) &&
-      label.split(close).length > label.split(open).length)) {
-      label = label.slice(0, -1).replace(/[.,;:!?]+$/, '');
-    }
-    let url: URL;
-    try {
-      url = new URL(/^www\./i.test(label) ? `https://${label}` : label);
-    } catch {
-      continue;
-    }
-    const link = document.createElement('a');
-    link.textContent = label;
-    link.href = url.href;
-    link.target = '_blank';
-    link.rel = 'noopener noreferrer';
-    detailVideo.append(text.slice(offset, match.index), link);
-    offset = match.index + label.length;
-  }
-  detailVideo.append(text.slice(offset));
-}
-
 function renderDetail(): void {
   const record = findRecordById(filters.selectedId);
   if (!record) {
     detailEmpty.hidden = false;
     detailContent.hidden = true;
+    renderDetailVideo();
     detailDialog.sync(false);
     return;
   }
@@ -463,7 +435,7 @@ function renderDetail(): void {
 
   detailNoteSection.hidden = !record.note;
   detailNote.textContent = record.note;
-  renderVideo(record.video);
+  renderDetailVideo(record.id, record.video);
 
   if (detailContent.dataset.formatId !== record.id) {
     detailContent.dataset.formatId = record.id;

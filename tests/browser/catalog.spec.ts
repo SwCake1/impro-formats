@@ -124,7 +124,7 @@ test('puts rules before requirements and keeps the original text', async ({ page
   expect(rules!.y + rules!.height).toBeLessThan(requirements!.y);
 });
 
-test('preserves video text, links URLs and opens them by keyboard in a new tab', async ({ page, context }) => {
+test('uses video captions as link labels and opens correct URLs by keyboard', async ({ page, context }) => {
   const video = 'Показ: https://example.test/watch?v=1&lang=ru.\nРепетиция (https://example.test/clip_(part)).\nwww.example.test/video';
   await context.route('https://example.test/**', route => route.fulfill({
     contentType: 'text/html', body: '<title>Видео</title>',
@@ -138,13 +138,11 @@ test('preserves video text, links URLs and opens them by keyboard in a new tab',
   const links = section.getByRole('link');
   await expect(section).toBeVisible();
   await expect(section.getByRole('heading', { name: 'Видео' })).toBeVisible();
-  await expect(text).toHaveJSProperty('textContent', video);
-  await expect(links).toHaveText([
-    'https://example.test/watch?v=1&lang=ru',
-    'https://example.test/clip_(part)',
-    'www.example.test/video',
-  ]);
+  await expect(links).toHaveText(['Показ', 'Репетиция', 'www.example.test/video']);
+  await expect(links.nth(0)).toHaveAttribute('href', 'https://example.test/watch?v=1&lang=ru');
+  await expect(links.nth(1)).toHaveAttribute('href', 'https://example.test/clip_(part)');
   await expect(links.nth(2)).toHaveAttribute('href', 'https://www.example.test/video');
+  await expect(section.locator('.detail-video__toggle')).toBeHidden();
   for (const link of await links.all()) {
     await expect(link).toHaveAttribute('target', '_blank');
     await expect(link).toHaveAttribute('rel', 'noopener noreferrer');
@@ -157,6 +155,66 @@ test('preserves video text, links URLs and opens them by keyboard in a new tab',
   await expect(popup).toHaveURL('https://example.test/watch?v=1&lang=ru');
   await popup.close();
   await expect(page).toHaveURL(/format=test-format/);
+});
+
+test('loads video covers and expands a long list without losing captions or links', async ({ page }) => {
+  const youtubeCover = 'https://i.ytimg.com/vi/Hc7WJ_MwofA/mqdefault.jpg';
+  const rutubeCover = 'https://rutube.ru/api/video/286bdfe7e3b4253c4e48fff651274be9/thumbnail/?redirect=1';
+  const missingCover = 'https://i.ytimg.com/vi/ztYiOiLoFJo/mqdefault.jpg';
+  const caption = 'Shoot From The Hip, Tom и Sam, соперники-маслоделы';
+  const video = [
+    caption + ': https://www.youtube.com/watch?v=Hc7WJ_MwofA',
+    'Эпизод из шоу: https://rutube.ru/video/286bdfe7e3b4253c4e48fff651274be9/',
+    'Репетиция: https://vkvideo.ru/video-216021785_456239183',
+    'Восьмой Arts & Improv Night: https://youtu.be/ztYiOiLoFJo',
+  ].join('\n');
+  const pixel = '<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"><rect width="1" height="1"/></svg>';
+  for (const cover of [youtubeCover, rutubeCover]) {
+    await page.route(url => url.href === cover, route => route.fulfill({ contentType: 'image/svg+xml', body: pixel }));
+  }
+  await page.route(url => url.href === missingCover, route => route.fulfill({ status: 404 }));
+  await page.route('**/data/formats.json', route => route.fulfill({
+    json: { ...catalog, records: [{ ...record, video }] },
+  }));
+  await page.goto('/?format=test-format');
+
+  const section = page.locator('#detailVideoSection');
+  const links = section.getByRole('link');
+  const toggle = section.locator('.detail-video__toggle');
+  await expect(section.getByRole('heading', { name: 'Видео 4' })).toBeVisible();
+  await expect(links).toHaveText([caption, 'Эпизод из шоу']);
+  await expect(toggle).toHaveText('Ещё 2 видео');
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await toggle.scrollIntoViewIfNeeded();
+  await expect(links.nth(0).locator('img')).toHaveAttribute('src', youtubeCover);
+  await expect(links.nth(0).locator('img')).toHaveJSProperty('naturalWidth', 1);
+  await expect(links.nth(1).locator('img')).toHaveAttribute('src', rutubeCover);
+  await expect(links.nth(1).locator('img')).toHaveJSProperty('naturalWidth', 1);
+
+  await toggle.press('Enter');
+  await expect(links).toHaveText([caption, 'Эпизод из шоу', 'Репетиция', 'Восьмой Arts & Improv Night']);
+  await expect(toggle).toHaveText('Свернуть');
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  await expect(toggle).toBeFocused();
+  const last = links.last();
+  await last.scrollIntoViewIfNeeded();
+  await expect(last.locator('img')).toHaveCount(0);
+  await expect(last.locator('.detail-video__play')).toBeVisible();
+  await expect(links.nth(2).locator('img')).toHaveCount(0);
+  await expect(last).toHaveAttribute('href', 'https://youtu.be/ztYiOiLoFJo');
+  await expect.poll(async () => {
+    const lastBox = (await last.boundingBox())!;
+    const toggleBox = (await toggle.boundingBox())!;
+    return toggleBox.y >= lastBox.y + lastBox.height;
+  }).toBe(true);
+  await page.keyboard.press('Shift+Tab');
+  await expect(last).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(toggle).toBeFocused();
+  await page.keyboard.press('Space');
+  await expect(links).toHaveCount(2);
+  await expect(toggle).toBeFocused();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
 });
 
 test('hides empty video fields and clears links when selecting another format', async ({ page }) => {
@@ -174,6 +232,34 @@ test('hides empty video fields and clears links when selecting another format', 
   await expect(page.locator('#detailVideo a')).toHaveCount(1);
 });
 
+test('scrolls with the additional videos while keeping the toggle in view', async ({ page }) => {
+  const video = Array.from({ length: 12 }, (_, index) => `Пример ${index + 1}: https://example.test/${index}`).join('\n');
+  const description = 'Сначала игроки просят зрителей предложить тему для сцены.\n\n'.repeat(30);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.route('**/data/formats.json', route => route.fulfill({
+    json: { ...catalog, records: [{ ...record, description, video }] },
+  }));
+  await page.goto('/?format=test-format');
+
+  const toggle = page.getByRole('button', { name: 'Ещё 10 видео' });
+  const panel = page.locator('#detailPanel');
+  const extra = page.locator('#detailVideoExtra');
+  await toggle.scrollIntoViewIfNeeded();
+  const before = await toggle.boundingBox();
+  const scrollTop = await panel.evaluate(node => node.scrollTop);
+  await toggle.click();
+
+  const collapse = page.getByRole('button', { name: 'Свернуть' });
+  await expect(collapse).toBeInViewport();
+  const after = await collapse.boundingBox();
+  const addedHeight = (await extra.boundingBox())!.height;
+  const scrollDelta = await panel.evaluate(node => node.scrollTop) - scrollTop;
+  expect(addedHeight).toBeGreaterThan(0);
+  expect(Math.abs(scrollDelta - addedHeight)).toBeLessThanOrEqual(1);
+  expect(Math.abs(after!.y - before!.y)).toBeLessThanOrEqual(1);
+  expect(await extra.evaluate(node => node.getAnimations().length)).toBe(0);
+});
+
 test('renders video notes, markup and unsupported URLs as plain text', async ({ page }) => {
   const video = 'Видео ещё в монтаже\n<img src=x onerror="alert(1)">\njavascript:alert(1)\ndata:text/html,<script>alert(1)</script>\nhttps://';
   await page.route('**/data/formats.json', route => route.fulfill({
@@ -181,7 +267,7 @@ test('renders video notes, markup and unsupported URLs as plain text', async ({ 
   }));
   await page.goto('/?format=test-format');
   await expect(page.locator('#detailVideoSection')).toBeVisible();
-  await expect(page.locator('#detailVideo')).toHaveJSProperty('textContent', video);
+  await expect(page.locator('.detail-video__note')).toHaveJSProperty('textContent', video);
   await expect(page.locator('#detailVideo').locator('a, img, script')).toHaveCount(0);
 });
 
