@@ -308,10 +308,20 @@ function createFormatRow(record: FormatRecord): HTMLButtonElement {
   const title = document.createElement('span');
   title.className = 'format-row__title';
   title.textContent = record.title;
-  const arrow = document.createElement('span');
-  arrow.className = 'format-row__arrow';
+  const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  arrow.classList.add('format-row__arrow');
   arrow.setAttribute('aria-hidden', 'true');
-  arrow.textContent = '→';
+  arrow.setAttribute('viewBox', '0 0 16 16');
+  arrow.setAttribute('width', '24');
+  arrow.setAttribute('height', '24');
+  const arrowPath = document.createElementNS(arrow.namespaceURI, 'path');
+  arrowPath.setAttribute('d', 'M2.5 8h11m-4-4 4 4-4 4');
+  arrowPath.setAttribute('fill', 'none');
+  arrowPath.setAttribute('stroke', 'currentColor');
+  arrowPath.setAttribute('stroke-width', '1.5');
+  arrowPath.setAttribute('stroke-linecap', 'round');
+  arrowPath.setAttribute('stroke-linejoin', 'round');
+  arrow.append(arrowPath);
   header.append(title, arrow);
 
   const description = document.createElement('span');

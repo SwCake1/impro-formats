@@ -36,6 +36,7 @@
         --note-surface: #f1e4d1;
         --white: #fff;
         --shadow: 0 20px 60px color-mix(in srgb, var(--ink) 10%, transparent);
+        --card-hover-shadow: 0 8px 24px color-mix(in srgb, var(--ink) 6%, transparent);
         --focus: 0 0 0 4px color-mix(in srgb, var(--accent) 24%, transparent);
         color: var(--ink);
         background: var(--canvas);
@@ -294,6 +295,7 @@
         border: 1px solid var(--line);
         border-radius: 15px;
         background: color-mix(in srgb, var(--surface) 94%, transparent);
+        box-shadow: var(--card-hover-shadow);
         backdrop-filter: blur(14px);
       }
 
@@ -384,6 +386,28 @@
           transform: rotate(180deg);
         }
 
+      }
+
+      @media (max-width: 380px) {
+        .results__heading {
+          flex-wrap: wrap;
+          gap: 4px;
+        }
+
+        .results__heading h2 {
+          flex: 1 1 min-content;
+          font-size: 15px;
+        }
+
+        .results__heading .button { padding-inline: 6px; }
+
+        .filters-toggle {
+          gap: 3px;
+          padding-inline: 5px;
+          font-size: 12px;
+        }
+
+        .filters-toggle__arrow { width: 12px; height: 12px; }
       }
 
       @media (max-width: 560px) {

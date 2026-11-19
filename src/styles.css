@@ -271,19 +271,25 @@ body.is-resizing-panels {
 .format-row:hover {
   border-color: var(--line-strong);
   background: var(--white);
-  box-shadow: 0 8px 24px color-mix(in srgb, var(--ink) 6%, transparent);
+  box-shadow: var(--card-hover-shadow);
 }
 
 .format-row[aria-pressed='true'] {
   border-color: var(--accent);
-  background: var(--accent-pale);
-  box-shadow: inset 3px 0 0 var(--accent-strong);
+  background: color-mix(in srgb, var(--accent-pale) 64%, var(--surface));
+  box-shadow: none;
+}
+
+.format-row:focus-visible {
+  outline: 2px solid var(--accent-strong);
+  outline-offset: 2px;
+  box-shadow: none;
 }
 
 .format-row__header {
   display: flex;
   gap: 14px;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
 }
 
@@ -296,9 +302,11 @@ body.is-resizing-panels {
 }
 
 .format-row__arrow {
+  width: 24px;
+  height: 24px;
   flex: 0 0 auto;
+  padding: 3px;
   color: var(--accent-strong);
-  font-size: 18px;
   transition: transform 140ms ease;
 }
 
