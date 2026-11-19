@@ -1,6 +1,6 @@
 import { initializeAnalytics } from './analytics';
 import { initializePanelResize } from './panel-resize';
-import { createDetailDialog } from './detail-dialog';
+import { createDetailDialog, type DetailPresentation } from './detail-dialog';
 import { createVideoSection } from './detail-video';
 import { fetchFormats, normalizeText, readCache, writeCache } from './data';
 import { classificationOptions, countActiveFilters, DEFAULT_FILTERS, filterFormats } from './filters';
@@ -52,7 +52,8 @@ const detailPanel = element<HTMLElement>('#detailPanel');
 const detailBackdrop = element<HTMLElement>('#detailBackdrop');
 const detailEmpty = element<HTMLElement>('#detailEmpty');
 const detailContent = element<HTMLElement>('#detailContent');
-const detailTitle = element<HTMLElement>('#detailTitle');
+const detailTopEdge = element<HTMLElement>('.detail-panel__edge--top');
+const detailTitleText = element<HTMLElement>('#detailTitleText');
 const detailTags = element<HTMLElement>('#detailTags');
 const detailDescription = element<HTMLElement>('#detailDescription');
 const detailRequirementsSection = element<HTMLElement>('#detailRequirementsSection');
@@ -60,6 +61,7 @@ const detailRequirements = element<HTMLElement>('#detailRequirements');
 const detailNoteSection = element<HTMLElement>('#detailNoteSection');
 const detailNote = element<HTMLElement>('#detailNote');
 const renderDetailVideo = createVideoSection(element('#detailVideoSection'), element('#detailVideoItem'));
+const expandDetailTitle = element<HTMLButtonElement>('#expandDetailTitle');
 const closeDetail = element<HTMLButtonElement>('#closeDetail');
 const copyLink = element<HTMLButtonElement>('#copyLink');
 const toast = element<HTMLElement>('#toast');
@@ -96,6 +98,8 @@ function restoreReadingPosition(): void {
 const resizablePanelsQuery = window.matchMedia('(min-width: 901px)');
 let records: FormatRecord[] = [];
 let filters: FilterState = readFiltersFromUrl(new URL(window.location.href));
+let detailPresentation: DetailPresentation = window.history.state?.detailPresentation ?? 'link';
+let detailOpenerId: string | null = null;
 let toastTimer: number | undefined;
 let loadController: AbortController | null = null;
 let loadState: 'loading' | 'ready' | 'error' = 'loading';
@@ -103,6 +107,9 @@ let loadState: 'loading' | 'ready' | 'error' = 'loading';
 const detailDialog = createDetailDialog({
   panel: detailPanel,
   backdrop: detailBackdrop,
+  titleButton: expandDetailTitle,
+  titleText: detailTitleText,
+  closeButton: closeDetail,
   fallbackFocus: searchInput,
   background: [
     element('.hero'), element('.footer'),
@@ -110,6 +117,7 @@ const detailDialog = createDetailDialog({
       node instanceof HTMLElement && node !== detailPanel && node !== detailBackdrop),
   ],
   onClose: closeSelectedFormat,
+  onCollapse: () => changeDetailPresentation('catalog'),
 });
 
 function pluralizeFormats(count: number): string {
@@ -134,7 +142,8 @@ function showToast(message: string): void {
 
 function syncUrl(mode: 'replace' | 'push' = 'replace'): void {
   const url = writeFiltersToUrl(filters, new URL(window.location.href));
-  window.history[mode === 'push' ? 'pushState' : 'replaceState']({}, '', url);
+  const state = filters.selectedId ? { detailPresentation } : {};
+  window.history[mode === 'push' ? 'pushState' : 'replaceState'](state, '', url);
 }
 
 function createTapeButton(tag: string, selected: boolean, onClick: () => void, key: string): HTMLButtonElement {
@@ -407,13 +416,13 @@ function renderDetail(): void {
     detailEmpty.hidden = false;
     detailContent.hidden = true;
     renderDetailVideo();
-    detailDialog.sync(false);
+    detailDialog.sync(null);
     return;
   }
 
   detailEmpty.hidden = true;
   detailContent.hidden = false;
-  detailTitle.textContent = record.title;
+  detailTitleText.textContent = record.title;
   detailDescription.replaceChildren(...descriptionParagraphs(record.description || 'Описание пока не добавлено.').map(text => {
     const paragraph = document.createElement('p');
     paragraph.textContent = text;
@@ -441,7 +450,7 @@ function renderDetail(): void {
     detailContent.dataset.formatId = record.id;
     detailPanel.scrollTop = 0;
   }
-  detailDialog.sync(true, () => formatButton(record.id));
+  detailDialog.sync(detailPresentation, () => formatButton(record.id));
 }
 
 function clearUnavailableSelection(visible: FormatRecord[]): boolean {
@@ -512,9 +521,42 @@ function renderSelection(): void {
 }
 
 function selectFormat(id: string): void {
+  if (filters.selectedId === id && detailPresentation === 'catalog') {
+    changeDetailPresentation('expanded', id);
+    return;
+  }
   filters.selectedId = id;
+  detailPresentation = 'catalog';
   syncUrl('push');
   renderSelection();
+}
+
+function changeDetailPresentation(presentation: 'catalog' | 'expanded', openerId: string | null = null): void {
+  // Keep the visible block in place when the wider card reflows its text.
+  const readingLine = detailTopEdge.getBoundingClientRect().bottom;
+  const anchor = detailPanel.scrollTop > 0
+    ? [...detailContent.querySelectorAll('h2, h3, p, li, .detail-actions')].find(node =>
+      node.getClientRects().length && node.getBoundingClientRect().bottom > readingLine)
+    : undefined;
+  const before = anchor?.getBoundingClientRect();
+  const opener = detailOpenerId ? formatButton(detailOpenerId) : null;
+
+  detailPresentation = presentation;
+  detailOpenerId = openerId;
+  syncUrl();
+  detailDialog.sync(presentation);
+  if (anchor && before) {
+    const after = anchor.getBoundingClientRect();
+    const progress = before.top < readingLine ? (readingLine - before.top) / before.height : 0;
+    const gap = Math.max(0, before.top - readingLine);
+    detailPanel.scrollTop += after.top + after.height * progress - detailTopEdge.getBoundingClientRect().bottom - gap;
+  }
+  if (presentation === 'catalog') {
+    const titleBounds = expandDetailTitle.getBoundingClientRect();
+    const titleVisible = titleBounds.top >= detailTopEdge.getBoundingClientRect().bottom
+      && titleBounds.bottom <= detailPanel.getBoundingClientRect().bottom;
+    (opener ?? (titleVisible ? expandDetailTitle : closeDetail)).focus({ preventScroll: true });
+  }
 }
 
 function closeSelectedFormat(): void {
@@ -708,11 +750,14 @@ filtersPanel.addEventListener('keydown', (event) => {
   }
 });
 resizablePanelsQuery.addEventListener('change', positionFiltersPanel);
-closeDetail.addEventListener('click', closeSelectedFormat);
-detailBackdrop.addEventListener('click', closeSelectedFormat);
+expandDetailTitle.addEventListener('click', () => changeDetailPresentation('expanded'));
+closeDetail.addEventListener('click', detailDialog.dismiss);
+detailBackdrop.addEventListener('click', detailDialog.dismiss);
 copyLink.addEventListener('click', () => void copyFormatLink());
-window.addEventListener('popstate', () => {
+window.addEventListener('popstate', event => {
   filters = readFiltersFromUrl(new URL(window.location.href));
+  detailPresentation = event.state?.detailPresentation ?? 'link';
+  detailOpenerId = null;
   render();
 });
 

@@ -348,9 +348,122 @@ test('keeps rows and keyboard focus when selecting a format on desktop', async (
   await expect(row).toBeFocused();
   await expect(row).toHaveAttribute('aria-pressed', 'true');
   expect(await original!.evaluate(node => node.isConnected)).toBe(true);
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('dialog', { name: record.title })).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(row).toBeFocused();
+  await expect(row).toHaveAttribute('aria-pressed', 'true');
   await page.keyboard.press('Escape');
   await expect(row).toBeFocused();
   await expect(row).toHaveAttribute('aria-pressed', 'false');
+});
+
+test('opens a selected desktop format on a second list click', async ({ page }, info) => {
+  test.skip(info.project.name !== 'desktop');
+  await page.goto('/');
+  const row = page.locator('[data-id="test-format"]');
+  const dialog = page.getByRole('dialog', { name: record.title });
+  await row.click();
+  await expect(row).toHaveAttribute('aria-pressed', 'true');
+  await expect(dialog).toBeHidden();
+  await row.click();
+  await expect(dialog).toBeFocused();
+  await dialog.getByRole('button', { name: 'Свернуть карточку' }).click();
+  await expect(row).toBeFocused();
+  await expect(row).toHaveAttribute('aria-pressed', 'true');
+
+  await page.locator('[data-id="second-format"]').dblclick();
+  await expect(page.getByRole('dialog', { name: 'Другой формат' })).toBeFocused();
+  await expect(page).toHaveURL('/?format=second-format');
+});
+
+test('centers a shared format on desktop and closes it back to the catalog', async ({ page }, info) => {
+  test.skip(info.project.name !== 'desktop');
+  await page.goto('/?format=test-format');
+  const dialog = page.getByRole('dialog', { name: record.title });
+  await expect(dialog).toBeFocused();
+  await expect(dialog).toHaveAttribute('aria-modal', 'true');
+  await expect(dialog.getByRole('heading', { name: record.title })).toBeVisible();
+  await expect(dialog.getByRole('button', { name: record.title })).toHaveCount(0);
+  await expect(page.locator('#detailBackdrop')).toBeVisible();
+  await expect.poll(() => dialog.evaluate(node => {
+    const bounds = node.getBoundingClientRect();
+    return Math.round(Math.max(
+      Math.abs(bounds.left + bounds.width / 2 - innerWidth / 2),
+      Math.abs(bounds.top + bounds.height / 2 - innerHeight / 2),
+    ));
+  })).toBeLessThanOrEqual(1);
+
+  await page.keyboard.press('Tab');
+  await expect(dialog.getByRole('button', { name: 'Закрыть карточку' })).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(page).toHaveURL('/');
+  await expect(page.locator('[data-id="test-format"]')).toBeFocused();
+  await expect(page.locator('#detailBackdrop')).toBeHidden();
+  await page.goBack();
+  await expect(dialog).toBeFocused();
+  await page.mouse.click(1, 1);
+  await expect(dialog).toBeHidden();
+});
+
+test('expands from the desktop title and returns to the same part of the rules', async ({ page }, info) => {
+  test.skip(info.project.name !== 'desktop');
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const description = Array.from({ length: 25 }, (_, index) =>
+    `Раунд ${index + 1}. ${'Игроки продолжают сцену по сигналу ведущего. '.repeat(5)}`).join('\n\n');
+  await page.route('**/data/formats.json', route => route.fulfill({
+    json: { ...catalog, records: [{ ...record, description }] },
+  }));
+  await page.goto('/');
+  const row = page.locator('[data-id="test-format"]');
+  await row.click();
+  const panel = page.locator('#detailPanel');
+  const title = panel.getByRole('button', { name: record.title });
+  const dialog = page.getByRole('dialog', { name: record.title });
+  await expect(dialog).toBeHidden();
+  await expect(title).toHaveCSS('text-decoration-line', 'none');
+  await title.hover();
+  await expect(title).toHaveCSS('text-decoration-line', 'underline');
+  await title.click();
+  await expect(dialog).toBeFocused();
+  await expect(title).toBeHidden();
+  await page.keyboard.press('Escape');
+  await expect(title).toBeFocused();
+  await expect(dialog).toBeHidden();
+
+  await title.press('Enter');
+  await expect(dialog).toBeFocused();
+  await panel.evaluate(node => {
+    const edge = node.querySelector('.detail-panel__edge--top')!;
+    const paragraph = node.querySelectorAll('#detailDescription p')[8];
+    node.scrollTop += paragraph.getBoundingClientRect().top - edge.getBoundingClientRect().bottom + 10;
+  });
+  const visibleParagraph = () => panel.evaluate(node => {
+    const edgeBottom = node.querySelector('.detail-panel__edge--top')!.getBoundingClientRect().bottom;
+    return [...node.querySelectorAll('#detailDescription p')]
+      .findIndex(paragraph => paragraph.getBoundingClientRect().bottom > edgeBottom);
+  });
+  await expect.poll(visibleParagraph).toBe(8);
+  const bounds = (await panel.boundingBox())!;
+  const topEdge = dialog.locator('.detail-panel__edge--top');
+  const bottomEdge = dialog.locator('.detail-panel__edge--bottom');
+  await expect.poll(async () => (await topEdge.boundingBox())?.y).toBe(bounds.y);
+  await expect(bottomEdge).toHaveCSS('height', '14px');
+  await expect.poll(async () => {
+    const edge = (await bottomEdge.boundingBox())!;
+    return edge.y + edge.height;
+  }).toBe(bounds.y + bounds.height);
+  await expect(page).toHaveURL('/?format=test-format');
+
+  await dialog.getByRole('button', { name: 'Свернуть карточку' }).click();
+  await expect(dialog).toBeHidden();
+  await expect(panel.getByRole('button', { name: 'Закрыть карточку' })).toBeFocused();
+  await expect.poll(visibleParagraph).toBe(8);
+  await expect(row).toHaveAttribute('aria-pressed', 'true');
+  await expect(page).toHaveURL('/?format=test-format');
+  await page.goBack();
+  await page.goForward();
+  await expect(title).toBeVisible();
 });
 
 test('traps focus in the mobile dialog and restores it when closed', async ({ page }, info) => {
@@ -360,6 +473,7 @@ test('traps focus in the mobile dialog and restores it when closed', async ({ pa
   await row.click();
   const dialog = page.getByRole('dialog');
   await expect(dialog).toBeFocused();
+  await expect(dialog.getByRole('button', { name: record.title })).toHaveCount(0);
   await page.keyboard.press('Shift+Tab');
   await expect(page.locator('#copyLink')).toBeFocused();
   await page.keyboard.press('Tab');
@@ -388,7 +502,14 @@ test('keeps the format dialog scrollable after rotating a phone', async ({ page 
   await expect(copyLink).not.toBeInViewport();
   await dialog.evaluate(panel => { panel.scrollTop = panel.scrollHeight; });
   await expect(copyLink).toBeInViewport({ ratio: 1 });
-  await expect(dialog.getByRole('button', { name: 'Закрыть карточку' })).toBeInViewport({ ratio: 1 });
+  const copyBounds = (await copyLink.boundingBox())!;
+  const fade = (await dialog.locator('.detail-panel__edge--bottom').boundingBox())!;
+  expect(copyBounds.y + copyBounds.height).toBeLessThanOrEqual(fade.y);
+  const close = dialog.getByRole('button', { name: 'Закрыть карточку' });
+  await expect(close).toBeInViewport({ ratio: 1 });
+  const closeBounds = (await close.boundingBox())!;
+  const descriptionBounds = (await dialog.locator('#detailDescription').boundingBox())!;
+  expect(closeBounds.x).toBeGreaterThanOrEqual(descriptionBounds.x + descriptionBounds.width);
 });
 
 test('handles dialog focus on direct links, history and viewport changes', async ({ page }, info) => {
@@ -404,6 +525,9 @@ test('handles dialog focus on direct links, history and viewport changes', async
   await page.goBack();
   await expect(page.locator('#detailPanel')).toBeFocused();
   await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(page.locator('#detailPanel')).toHaveAttribute('aria-modal', 'true');
+  await page.locator('#closeDetail').click();
+  await page.locator('[data-id="test-format"]').click();
   await expect(page.locator('#detailPanel')).not.toHaveAttribute('aria-modal');
   await page.locator('#searchInput').focus();
   await expect(page.locator('#searchInput')).toBeFocused();
@@ -626,7 +750,8 @@ test('opens sources over the catalog and restores focus and reading position', a
 
 test('keeps the selected format open when Escape closes sources', async ({ page }, info) => {
   test.skip(info.project.name !== 'desktop');
-  await page.goto('/?format=test-format');
+  await page.goto('/');
+  await page.locator('[data-id="test-format"]').click();
   await expect(page.locator('#detailContent')).toBeVisible();
   await page.getByRole('button', { name: 'Источники и благодарности', exact: true }).click();
   await expect(page.getByRole('dialog', { name: 'Источники и благодарности' })).toBeVisible();
