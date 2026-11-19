@@ -541,8 +541,15 @@ function updateSelectFilters(): void {
   applyFilterChange();
 }
 
-async function copyCurrentLink(): Promise<void> {
-  const text = `${detailTitle.textContent}: ${window.location.href}`;
+async function copyFormatLink(): Promise<void> {
+  const { selectedId } = filters;
+  if (!selectedId) return;
+
+  const url = new URL(window.location.href);
+  url.search = '';
+  url.hash = '';
+  url.searchParams.set('format', selectedId);
+  const text = url.href;
   try {
     await navigator.clipboard.writeText(text);
     showToast('Ссылка скопирована');
@@ -703,7 +710,7 @@ filtersPanel.addEventListener('keydown', (event) => {
 resizablePanelsQuery.addEventListener('change', positionFiltersPanel);
 closeDetail.addEventListener('click', closeSelectedFormat);
 detailBackdrop.addEventListener('click', closeSelectedFormat);
-copyLink.addEventListener('click', () => void copyCurrentLink());
+copyLink.addEventListener('click', () => void copyFormatLink());
 window.addEventListener('popstate', () => {
   filters = readFiltersFromUrl(new URL(window.location.href));
   render();

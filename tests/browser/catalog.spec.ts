@@ -443,7 +443,7 @@ test('preserves the cached catalog when fresh data is invalid', async ({ page })
   expect(stored.records).toEqual(catalog.records);
 });
 
-test('copies the current link with the primary clipboard API', async ({ page }) => {
+test('copies only the direct format URL from a filtered catalog', async ({ page }) => {
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'clipboard', {
       value: { writeText: async (text: string) => {
@@ -451,10 +451,24 @@ test('copies the current link with the primary clipboard API', async ({ page }) 
       } },
     });
   });
-  await page.goto('/?format=test-format');
+  await page.goto('/?props=yes');
+  await page.locator('#searchInput').fill('Тестовый');
+  await page.locator('.format-row[data-id="test-format"]').click();
+  await expect(page).toHaveURL(/\?q=[^&]+&props=yes&format=test-format$/);
   await page.locator('#copyLink').click();
   await expect(page.locator('#toast')).toHaveText('Ссылка скопирована');
-  expect(await page.evaluate(() => (window as Window & { copiedLink?: string }).copiedLink)).toBe(`${await page.locator('#detailTitle').textContent()}: ${page.url()}`);
+  const copiedLink = await page.evaluate(() => (window as Window & { copiedLink?: string }).copiedLink);
+  expect(copiedLink).toBe(new URL('/?format=test-format', page.url()).href);
+  await expect(page).toHaveURL(/\?q=[^&]+&props=yes&format=test-format$/);
+
+  const recipient = await page.context().newPage();
+  await recipient.route('**/*', route => new URL(route.request().url()).hostname === '127.0.0.1'
+    ? route.continue() : route.abort());
+  await recipient.route('**/data/formats.json', route => route.fulfill({ json: catalog }));
+  await recipient.goto(copiedLink!);
+  await expect(recipient.locator('#detailContent')).toBeVisible();
+  await expect(recipient.locator('#detailTitle')).toHaveText(record.title);
+  await expect(recipient.locator('.format-row')).toHaveCount(2);
 });
 
 test('resizes panels with the keyboard and restores their saved width', async ({ page }, info) => {
