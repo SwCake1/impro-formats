@@ -38,6 +38,7 @@ const furnitureFilter = element<HTMLSelectElement>('#furnitureFilter');
 const resultsCount = element<HTMLElement>('#resultsCount');
 const resultsHeading = element<HTMLElement>('#resultsHeading');
 const resultsSummary = element<HTMLElement>('.results__heading');
+const resultsPanel = element<HTMLElement>('.results');
 const formatsList = element<HTMLElement>('#formatsList');
 const catalogLoading = element<HTMLElement>('#catalogLoading');
 const emptyState = element<HTMLElement>('#emptyState');
@@ -60,7 +61,7 @@ const detailRequirementsSection = element<HTMLElement>('#detailRequirementsSecti
 const detailRequirements = element<HTMLElement>('#detailRequirements');
 const detailNoteSection = element<HTMLElement>('#detailNoteSection');
 const detailNote = element<HTMLElement>('#detailNote');
-const renderDetailVideo = createVideoSection(element('#detailVideoSection'), element('#detailVideoItem'));
+const renderDetailVideo = createVideoSection(element('#detailVideoSection'), element('#detailVideoItem'), detailScrollContainer);
 const expandDetailTitle = element<HTMLButtonElement>('#expandDetailTitle');
 const closeDetail = element<HTMLButtonElement>('#closeDetail');
 const copyLink = element<HTMLButtonElement>('#copyLink');
@@ -96,6 +97,7 @@ function restoreReadingPosition(): void {
 }
 
 const resizablePanelsQuery = window.matchMedia('(min-width: 901px)');
+const threePanelsQuery = window.matchMedia('(min-width: 1221px)');
 let records: FormatRecord[] = [];
 let filters: FilterState = readFiltersFromUrl(new URL(window.location.href));
 let detailPresentation: DetailPresentation = window.history.state?.detailPresentation ?? 'link';
@@ -502,6 +504,15 @@ function renderResults(): void {
     : 'Уберите один из фильтров или измените запрос.';
   emptyReset.hidden = loading;
   emptyReset.textContent = showError ? 'Повторить загрузку' : 'Показать все';
+  syncResultsLayout();
+}
+
+function syncResultsLayout(): void {
+  // Both side panels use this same available height below the fixed header.
+  const resultsFit = threePanelsQuery.matches && formatsList.childElementCount > 0
+    && resultsPanel.getBoundingClientRect().height <= Number.parseFloat(getComputedStyle(filtersPanel).maxHeight);
+  if (resultsFit === catalog.classList.contains('results-fit')) return;
+  keepDetailReadingPosition(() => catalog.classList.toggle('results-fit', resultsFit));
 }
 
 function render(): void {
@@ -539,32 +550,69 @@ function selectFormat(id: string): void {
   detailPresentation = 'catalog';
   syncUrl('push');
   renderSelection();
+  if (detailScrollContainer() !== detailPanel
+      && detailTitleText.getBoundingClientRect().top < detailPageInset()) {
+    detailPanel.scrollIntoView({ block: 'start' });
+  }
 }
 
-function changeDetailPresentation(presentation: 'catalog' | 'expanded', openerId: string | null = null): void {
+function detailScrollContainer(): HTMLElement {
+  return getComputedStyle(detailPanel).overflowY === 'visible' ? document.documentElement : detailPanel;
+}
+
+function detailPanelTop(): number {
+  return detailPanel.getBoundingClientRect().top + detailPanel.clientTop;
+}
+
+function detailPageInset(): number {
+  return Number.parseFloat(getComputedStyle(detailTopEdge).top);
+}
+
+function keepDetailReadingPosition(updateLayout: () => void): void {
   // Keep the visible block in place when the wider card reflows its text.
-  const readingLine = detailTopEdge.getBoundingClientRect().bottom;
-  const anchor = detailPanel.scrollTop > 0
+  const scrollContainer = detailScrollContainer();
+  const panelTop = detailPanelTop();
+  const readingTop = scrollContainer === detailPanel ? panelTop : Math.max(panelTop, detailPageInset());
+  const readingLine = readingTop + detailTopEdge.offsetHeight;
+  const hasScrolledIntoDetail = scrollContainer === detailPanel || readingTop > panelTop;
+  const anchor = !detailContent.hidden && detailContent.dataset.formatId === filters.selectedId
+    && scrollContainer.scrollTop > 0 && hasScrolledIntoDetail
     ? [...detailContent.querySelectorAll('h2, h3, p, li, .detail-actions')].find(node =>
       node.getClientRects().length && node.getBoundingClientRect().bottom > readingLine)
     : undefined;
   const before = anchor?.getBoundingClientRect();
-  const opener = detailOpenerId ? formatButton(detailOpenerId) : null;
 
-  detailPresentation = presentation;
-  detailOpenerId = openerId;
-  syncUrl();
-  detailDialog.sync(presentation);
+  updateLayout();
   if (anchor && before) {
+    const nextContainer = detailScrollContainer();
     const after = anchor.getBoundingClientRect();
     const progress = before.top < readingLine ? (readingLine - before.top) / before.height : 0;
     const gap = Math.max(0, before.top - readingLine);
-    detailPanel.scrollTop += after.top + after.height * progress - detailTopEdge.getBoundingClientRect().bottom - gap;
+    const nextLine = (nextContainer === detailPanel ? detailPanelTop() : detailPageInset())
+      + detailTopEdge.offsetHeight;
+    nextContainer.scrollTop += after.top + after.height * progress - nextLine - gap;
   }
+}
+
+function changeDetailPresentation(presentation: 'catalog' | 'expanded', openerId: string | null = null): void {
+  const opener = detailOpenerId ? formatButton(detailOpenerId) : null;
+  keepDetailReadingPosition(() => {
+    if (presentation === 'expanded' && detailScrollContainer() !== detailPanel) {
+      catalog.style.setProperty('--catalog-height-before-dialog', `${catalog.offsetHeight}px`);
+    } else {
+      catalog.style.removeProperty('--catalog-height-before-dialog');
+    }
+    detailPresentation = presentation;
+    detailOpenerId = openerId;
+    syncUrl();
+    detailDialog.sync(presentation);
+  });
   if (presentation === 'catalog') {
     const titleBounds = expandDetailTitle.getBoundingClientRect();
-    const titleVisible = titleBounds.top >= detailTopEdge.getBoundingClientRect().bottom
-      && titleBounds.bottom <= detailPanel.getBoundingClientRect().bottom;
+    const readingTop = detailScrollContainer() === detailPanel ? detailPanelTop()
+      : Math.max(detailPanelTop(), detailPageInset());
+    const titleVisible = titleBounds.top >= readingTop + detailTopEdge.offsetHeight
+      && titleBounds.bottom <= Math.min(window.innerHeight, detailPanel.getBoundingClientRect().bottom);
     (opener ?? (titleVisible ? expandDetailTitle : closeDetail)).focus({ preventScroll: true });
   }
 }
@@ -573,6 +621,7 @@ function closeSelectedFormat(): void {
   if (!filters.selectedId) return;
   const trigger = formatButton(filters.selectedId);
   filters.selectedId = null;
+  catalog.style.removeProperty('--catalog-height-before-dialog');
   syncUrl('push');
   renderSelection();
   (trigger ?? searchInput).focus({ preventScroll: true });
@@ -768,6 +817,7 @@ window.addEventListener('popstate', event => {
   filters = readFiltersFromUrl(new URL(window.location.href));
   detailPresentation = event.state?.detailPresentation ?? 'link';
   detailOpenerId = null;
+  catalog.style.removeProperty('--catalog-height-before-dialog');
   render();
 });
 
@@ -783,6 +833,8 @@ function startApp(): void {
   element('.cue-search').inert = false;
   filtersToggle.disabled = false;
   initializePanelResize(catalog, { filters: filtersResizeHandle, detail: detailResizeHandle });
+  new ResizeObserver(syncResultsLayout).observe(resultsPanel);
+  window.addEventListener('resize', syncResultsLayout);
   render();
   if (records.length > 0) restoreReadingPosition();
   void loadFreshData().then(restoreReadingPosition);

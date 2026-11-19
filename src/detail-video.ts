@@ -84,13 +84,14 @@ function createVideoItem(item: VideoItem, template: HTMLTemplateElement): HTMLLI
   return row;
 }
 
-export function createVideoSection(section: HTMLElement, template: HTMLTemplateElement) {
+export function createVideoSection(
+  section: HTMLElement, template: HTMLTemplateElement, scrollContainer: () => HTMLElement,
+) {
   const count = section.querySelector<HTMLElement>('.detail-video__count')!;
   const [first, rest] = section.querySelectorAll<HTMLUListElement>('.detail-video__list');
   const extra = section.querySelector<HTMLElement>('#detailVideoExtra')!;
   const toggle = section.querySelector<HTMLButtonElement>('.detail-video__toggle')!;
   const toggleLabel = toggle.firstElementChild!;
-  const panel = section.closest<HTMLElement>('#detailPanel')!;
   let previousId: string | undefined;
   let previousText = '';
   let showMoreLabel = '';
@@ -110,7 +111,7 @@ export function createVideoSection(section: HTMLElement, template: HTMLTemplateE
     const animations = extra.getAnimations();
 
     function alignButton(): void {
-      panel.scrollTop += toggle.getBoundingClientRect().top - buttonTop;
+      scrollContainer().scrollTop += toggle.getBoundingClientRect().top - buttonTop;
     }
 
     function followAnimation(): void {

@@ -377,6 +377,39 @@ test('opens a selected desktop format on a second list click', async ({ page }, 
   await expect(page).toHaveURL('/?format=second-format');
 });
 
+test('uses page scrolling when the desktop results fit below the header', async ({ page }, info) => {
+  test.skip(info.project.name !== 'desktop');
+  const description = 'Игроки продолжают сцену по сигналу ведущего. '.repeat(150);
+  await page.route('**/data/formats.json', route => route.fulfill({
+    json: { ...catalog, records: [
+      { ...record, description },
+      { ...catalog.records[1], description },
+      { ...record, id: 'third-format', title: 'Третий формат', description },
+    ] },
+  }));
+  await page.goto('/');
+  await page.locator('[data-id="test-format"]').click();
+  const panel = page.locator('#detailPanel');
+  const results = page.locator('.results');
+  await expect(panel).toHaveCSS('overflow-y', 'visible');
+  await expect(results).toHaveCSS('position', 'sticky');
+  await expect(results.locator('.results__heading')).toHaveCSS('position', 'static');
+
+  await panel.hover({ position: { x: 150, y: 100 } });
+  const before = await page.evaluate(() => scrollY);
+  await page.mouse.wheel(0, 600);
+  await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(before);
+  await expect.poll(() => panel.evaluate(node => node.scrollTop)).toBe(0);
+
+  await page.setViewportSize({ width: 1440, height: 430 });
+  await expect(panel).toHaveCSS('overflow-y', 'auto');
+  await expect(results).toHaveCSS('position', 'static');
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(panel).toHaveCSS('overflow-y', 'visible');
+  await page.locator('[data-id="second-format"]').click();
+  await expect(panel.getByRole('button', { name: 'Другой формат' })).toBeInViewport({ ratio: 1 });
+});
+
 test('centers a shared format on desktop and closes it back to the catalog', async ({ page }, info) => {
   test.skip(info.project.name !== 'desktop');
   await page.goto('/?format=test-format');
@@ -434,9 +467,10 @@ test('expands from the desktop title and returns to the same part of the rules',
   await title.press('Enter');
   await expect(dialog).toBeFocused();
   await panel.evaluate(node => {
-    const edge = node.querySelector('.detail-panel__edge--top')!;
+    const edge = node.querySelector<HTMLElement>('.detail-panel__edge--top')!;
     const paragraph = node.querySelectorAll('#detailDescription p')[8];
-    node.scrollTop += paragraph.getBoundingClientRect().top - edge.getBoundingClientRect().bottom + 10;
+    const readingLine = node.getBoundingClientRect().top + node.clientTop + edge.offsetHeight;
+    node.scrollTop += paragraph.getBoundingClientRect().top - readingLine + 10;
   });
   const visibleParagraph = () => panel.evaluate(node => {
     const edgeBottom = node.querySelector('.detail-panel__edge--top')!.getBoundingClientRect().bottom;
@@ -720,7 +754,7 @@ test('opens sources over the catalog and restores focus and reading position', a
   await expect(dialog.getByRole('heading', { level: 3 }).nth(1)).toContainText('Борис Базаров');
   await expect(boris).toHaveAttribute('href', 'https://t.me/britvennik');
   await expect(dialog.getByText('Спасибо за подборку видео', { exact: false })).toBeVisible();
-  await expect(dialog).toHaveCSS('font-size', '12px');
+  await expect(dialog).toHaveCSS('font-size', '16px');
   await expect(table).toHaveCSS('font-weight', '400');
   await expect(table).toHaveCSS('display', 'inline');
   const author = dialog.getByRole('link', { name: 'Алла Москвичёва', exact: false });
