@@ -885,6 +885,8 @@ html:has(.sources-dialog[open]) {
 
 .sources-dialog__content { padding: 24px; }
 
+.sources-dialog__content > section + section { margin-top: 16px; }
+
 .sources-dialog__header {
   display: flex;
   align-items: center;

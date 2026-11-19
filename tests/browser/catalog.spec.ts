@@ -708,6 +708,7 @@ test('opens sources over the catalog and restores focus and reading position', a
   const dialog = page.getByRole('dialog', { name: 'Источники и благодарности' });
   const close = dialog.getByRole('button', { name: 'Закрыть', exact: true });
   const table = dialog.getByRole('link', { name: 'таблице форматов', exact: true });
+  const boris = dialog.getByRole('link', { name: 'Борис Базаров', exact: false });
 
   await trigger.focus();
   await page.keyboard.press('Enter');
@@ -716,6 +717,9 @@ test('opens sources over the catalog and restores focus and reading position', a
   await expect(close).toBeFocused();
   await expect(dialog.getByRole('link', { name: 'Алла Москвичёва', exact: false })).toBeVisible();
   await expect(table).toHaveAttribute('href', 'https://docs.google.com/spreadsheets/d/1AfoTVt6XzkpTk8UZAfBpzQlpSSKTyRkziyt4cglOMKU/edit');
+  await expect(dialog.getByRole('heading', { level: 3 }).nth(1)).toContainText('Борис Базаров');
+  await expect(boris).toHaveAttribute('href', 'https://t.me/britvennik');
+  await expect(dialog.getByText('Спасибо за подборку видео', { exact: false })).toBeVisible();
   await expect(dialog).toHaveCSS('font-size', '12px');
   await expect(table).toHaveCSS('font-weight', '400');
   await expect(table).toHaveCSS('display', 'inline');
@@ -725,6 +729,10 @@ test('opens sources over the catalog and restores focus and reading position', a
   await page.keyboard.press('Tab');
   await expect(author).toBeFocused();
   await page.keyboard.press('Tab');
+  await expect(table).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(boris).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
   await expect(table).toBeFocused();
   await page.keyboard.press('Shift+Tab');
   await expect(author).toBeFocused();
