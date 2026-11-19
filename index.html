@@ -286,6 +286,25 @@
       .filters-toggle { display: none; }
       .results { min-width: 0; }
 
+      .detail-empty__illustration {
+        width: min(152px, 100%);
+        aspect-ratio: 456 / 479;
+        margin-bottom: 8px;
+      }
+
+      .detail-empty__illustration img {
+        display: none;
+        width: 100%;
+        height: auto;
+      }
+
+      .detail-empty:has(#kittenVariantOriginal:checked) .detail-empty__illustration img:nth-child(1),
+      .detail-empty:has(#kittenVariant1:checked) .detail-empty__illustration img:nth-child(2),
+      .detail-empty:has(#kittenVariant2:checked) .detail-empty__illustration img:nth-child(3),
+      .detail-empty:has(#kittenVariant3:checked) .detail-empty__illustration img:nth-child(4) {
+        display: block;
+      }
+
       .results__heading {
         position: sticky;
         z-index: 2;
@@ -794,9 +813,23 @@
       <div id="detailBackdrop" class="detail-backdrop" hidden></div>
       <aside id="detailPanel" class="detail-panel" aria-labelledby="detailTitle" tabindex="-1">
         <div id="detailEmpty" class="detail-empty">
-          <span class="detail-empty__arrow" aria-hidden="true">↖</span>
+          <div class="detail-empty__illustration">
+            <img src="/src/assets/format-selection-kitten.webp" alt="" width="456" height="479" loading="lazy" decoding="async" />
+            <img src="/src/assets/format-selection-kitten-eyes-1.webp" alt="" width="456" height="479" loading="lazy" decoding="async" />
+            <img src="/src/assets/format-selection-kitten-eyes-2.webp" alt="" width="456" height="479" loading="lazy" decoding="async" />
+            <img src="/src/assets/format-selection-kitten-eyes-3.webp" alt="" width="456" height="479" loading="lazy" decoding="async" />
+          </div>
           <h2>Выберите формат</h2>
           <p>Здесь появятся правила, условия и всё необходимое для игры.</p>
+          <fieldset class="kitten-variants" hidden>
+            <legend>Вариант котёнка</legend>
+            <div class="kitten-variants__options">
+              <label><input id="kittenVariantOriginal" name="kittenVariant" type="radio" />Оригинал</label>
+              <label><input id="kittenVariant1" name="kittenVariant" type="radio" checked />1</label>
+              <label><input id="kittenVariant2" name="kittenVariant" type="radio" />2</label>
+              <label><input id="kittenVariant3" name="kittenVariant" type="radio" />3</label>
+            </div>
+          </fieldset>
         </div>
         <article id="detailContent" hidden>
           <div class="detail-panel__edge detail-panel__edge--top">
@@ -890,17 +923,23 @@
         <header class="sources-dialog__header">
           <h2 id="sourcesDialogTitle" class="sources-dialog__title">Источники и благодарности</h2>
           <form method="dialog">
-            <button class="text-button sources-dialog__close" type="submit" autofocus>Закрыть</button>
+            <button class="icon-button sources-dialog__close" type="submit" aria-label="Закрыть" title="Закрыть" autofocus>
+              <svg width="18" height="18" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path d="m4 4 8 8m0-8-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+              </svg>
+            </button>
           </form>
         </header>
-        <section class="sources-dialog__credit" aria-labelledby="sourcesAllaName">
-          <h3 id="sourcesAllaName"><a href="https://t.me/AllaMos313" target="_blank" rel="noreferrer">Алла Москвичёва · @AllaMos313 ↗</a></h3>
-          <p>Часть каталога основана на <a href="https://docs.google.com/spreadsheets/d/1AfoTVt6XzkpTk8UZAfBpzQlpSSKTyRkziyt4cglOMKU/edit" target="_blank" rel="noreferrer">таблице форматов</a>, собранной Аллой. Спасибо за сбор и систематизацию материалов.</p>
-        </section>
-        <section class="sources-dialog__credit" aria-labelledby="sourcesBorisName">
-          <h3 id="sourcesBorisName"><a href="https://t.me/britvennik" target="_blank" rel="noreferrer">Борис Базаров · @britvennik ↗</a></h3>
-          <p>Спасибо за подборку видео с примерами импровизационных форматов.</p>
-        </section>
+        <div class="sources-dialog__credits">
+          <section class="sources-dialog__credit" aria-labelledby="sourcesAllaName">
+            <h3 id="sourcesAllaName"><a href="https://t.me/AllaMos313" target="_blank" rel="noreferrer">Алла Москвичёва · @AllaMos313&nbsp;↗</a></h3>
+            <p>Часть каталога основана на <a href="https://docs.google.com/spreadsheets/d/1AfoTVt6XzkpTk8UZAfBpzQlpSSKTyRkziyt4cglOMKU/edit" target="_blank" rel="noreferrer">таблице форматов</a>, собранной Аллой. Спасибо за сбор и систематизацию материалов.</p>
+          </section>
+          <section class="sources-dialog__credit" aria-labelledby="sourcesBorisName">
+            <h3 id="sourcesBorisName"><a href="https://t.me/britvennik" target="_blank" rel="noreferrer">Борис Базаров · @britvennik&nbsp;↗</a></h3>
+            <p>Спасибо за подборку видео с примерами импровизационных форматов.</p>
+          </section>
+        </div>
       </div>
     </dialog>
 
